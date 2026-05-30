@@ -13,7 +13,7 @@ import React, { useState } from 'react';
 import { Scale, Loader2, Mail, KeyRound, LogIn, UserPlus, Sparkles, Lock, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { BRAND_LABEL, TAGLINE } from '../runtime.js';
-import { Button, Input } from './ui.jsx';
+import { Button, Input, PasswordInput } from './ui.jsx';
 
 function Shell({ children, subtitle }) {
   return (
@@ -108,7 +108,7 @@ function LoginScreen() {
       <form onSubmit={submit} className="space-y-4">
         <Input label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@firm.com" leftIcon={<Mail className="w-4 h-4" />} required />
         {mode !== 'magic' && (
-          <Input label="Password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" leftIcon={<KeyRound className="w-4 h-4" />} hint={mode === 'signup' ? 'At least 8 characters with a mix of letters and numbers.' : undefined} required />
+          <PasswordInput label="Password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" leftIcon={<KeyRound className="w-4 h-4" />} hint={mode === 'signup' ? 'At least 8 characters with a mix of letters and numbers.' : undefined} required />
         )}
         <Button type="submit" className="w-full" size="lg" isLoading={busy} leftIcon={<Icon className="w-5 h-5" />}>{MODES[mode].cta}</Button>
       </form>
@@ -146,8 +146,8 @@ function UpdatePasswordScreen() {
   return (
     <Shell subtitle="Set a new password">
       <form onSubmit={submit} className="space-y-4">
-        <Input label="New password" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} leftIcon={<KeyRound className="w-4 h-4" />} hint="At least 8 characters." required />
-        <Input label="Confirm new password" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} leftIcon={<KeyRound className="w-4 h-4" />} required />
+        <PasswordInput label="New password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} leftIcon={<KeyRound className="w-4 h-4" />} hint="At least 8 characters." required />
+        <PasswordInput label="Confirm new password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} leftIcon={<KeyRound className="w-4 h-4" />} required />
         <Button type="submit" className="w-full" size="lg" isLoading={busy} leftIcon={<ShieldCheck className="w-5 h-5" />}>Update password</Button>
       </form>
     </Shell>
@@ -198,7 +198,7 @@ function LockScreen() {
   return (
     <Shell subtitle="Enter your passcode to unlock">
       <form onSubmit={submit} className="space-y-4">
-        <Input label="Passcode" type="password" inputMode="numeric" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} leftIcon={<Lock className="w-4 h-4" />} placeholder="••••••" required />
+        <PasswordInput label="Passcode" inputMode="numeric" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} leftIcon={<Lock className="w-4 h-4" />} placeholder="••••••" required />
         <Button type="submit" className="w-full" size="lg" isLoading={busy} leftIcon={<LogIn className="w-5 h-5" />}>Unlock</Button>
         {msg && <p className="text-sm text-red-500 text-center">{msg}</p>}
       </form>

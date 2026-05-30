@@ -3,12 +3,12 @@
 // ============================================================
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shield, Save, Plus, BadgeCheck, UserX, UserCheck, RotateCcw, Trash2, Star, MessageSquarePlus } from 'lucide-react';
+import { Shield, Save, Plus, BadgeCheck, UserX, UserCheck, RotateCcw, Trash2, Star, MessageSquarePlus, KeyRound } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { storage, STORAGE_KEYS } from '../database.js';
 import { registerVerifiedCases, VERIFIED_CASES } from '../citations.js';
 import { MODELS } from '../ai.js';
-import { Card, Button, Input, Select, Toggle, PageHeader, Badge, Modal, EmptyState } from '../components/ui.jsx';
+import { Card, Button, Input, Select, Toggle, PageHeader, Badge, Modal, EmptyState, PasswordInput } from '../components/ui.jsx';
 import { formatCurrency, formatDateTime, generateId, cn } from '../utils.js';
 import { computeProfessionalFee } from '../helpers.js';
 import { JURISDICTIONS } from '../legalData.js';
@@ -58,9 +58,13 @@ const TABS = [
 
 // ---- Users Tab ----
 function UsersTab({ showToast, audit }) {
+  const { supabaseEnabled, requestPasswordReset, setPasscode } = useApp();
   const [users, setUsers] = useState(getAdminUsers);
   const [showAdd, setShowAdd] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', role: 'lawyer', name: '' });
+  const [resetTarget, setResetTarget] = useState(null);
+  const [newPin, setNewPin] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
 
   const saveUsers = (list) => {
     setUsers(list);
@@ -108,15 +112,41 @@ function UsersTab({ showToast, audit }) {
   };
 
   const resetPassword = (id) => {
-    const updated = users.map((u) => {
-      if (u.id === id) {
-        audit('USER_PASSWORD_RESET', u.email);
-        showToast('success', `Password reset flagged for ${u.email}.`);
-        return { ...u, passwordResetPending: true };
-      }
-      return u;
-    });
-    saveUsers(updated);
+    const target = users.find((u) => u.id === id);
+    if (target) { setResetTarget(target); setNewPin(''); }
+  };
+
+  // Cloud mode: send the user a real Supabase password-reset email.
+  const sendResetEmail = async () => {
+    if (!resetTarget) return;
+    setResetBusy(true);
+    try {
+      await requestPasswordReset(resetTarget.email);
+      saveUsers(users.map((u) => (u.id === resetTarget.id ? { ...u, passwordResetPending: true } : u)));
+      audit('USER_PASSWORD_RESET', `email sent: ${resetTarget.email}`);
+      showToast('success', `Password-reset email sent to ${resetTarget.email}.`);
+      setResetTarget(null);
+    } catch (e) {
+      showToast('error', e.message || 'Could not send reset email.');
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
+  // Local mode: set the device passcode (the real local credential).
+  const setLocalPasscode = async () => {
+    if (newPin.length < 4) { showToast('warning', 'Use at least 4 characters.'); return; }
+    setResetBusy(true);
+    try {
+      await setPasscode(newPin);
+      saveUsers(users.map((u) => (u.id === resetTarget.id ? { ...u, passwordResetPending: false } : u)));
+      audit('USER_PASSWORD_RESET', `device passcode reset (${resetTarget.email})`);
+      showToast('success', 'Device passcode has been reset.');
+      setResetTarget(null);
+      setNewPin('');
+    } finally {
+      setResetBusy(false);
+    }
   };
 
   const removeUser = (id) => {
@@ -237,6 +267,31 @@ function UsersTab({ showToast, audit }) {
             <Button onClick={addUser} leftIcon={<Plus className="w-4 h-4" />}>Add User</Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal isOpen={!!resetTarget} onClose={() => setResetTarget(null)} title={`Reset password — ${resetTarget?.name || resetTarget?.email || ''}`}>
+        {supabaseEnabled ? (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              This will email a secure password-reset link to <strong>{resetTarget?.email}</strong>. They set their own new password — you never see it.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setResetTarget(null)}>Cancel</Button>
+              <Button onClick={sendResetEmail} isLoading={resetBusy} leftIcon={<RotateCcw className="w-4 h-4" />}>Send reset email</Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-200">
+              Local mode uses a single shared <strong>device passcode</strong> as the login credential. Setting it here resets access on this device for everyone. (For per-user passwords, enable Supabase cloud login.)
+            </div>
+            <PasswordInput label="New device passcode" inputMode="numeric" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="At least 4 characters" leftIcon={<KeyRound className="w-4 h-4" />} />
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" onClick={() => setResetTarget(null)}>Cancel</Button>
+              <Button onClick={setLocalPasscode} isLoading={resetBusy} leftIcon={<RotateCcw className="w-4 h-4" />}>Set new passcode</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

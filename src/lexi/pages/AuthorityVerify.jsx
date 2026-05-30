@@ -63,7 +63,11 @@ export function AuthorityVerify() {
       if (live) lines.push(`   Live web: ${live.verdict}${live.url ? ` — ${live.url}` : ''}`);
       lines.push('');
     });
-    if (result.repealed.length) { lines.push('REPEALED / SUPERSEDED:'); result.repealed.forEach((r) => lines.push(`  - ${r}`)); lines.push(''); }
+    if (result.repealed.length) {
+      lines.push('REPEALED / SUPERSEDED:');
+      result.repealed.forEach((r) => lines.push(`  - ${r.note}${r.current ? ` → Cite instead: ${r.current}` : ''}`));
+      lines.push('');
+    }
     if (result.foreign.length) { lines.push(`FOREIGN AUTHORITIES (persuasive only): ${result.foreign.join(', ')}`); lines.push(''); }
     lines.push('-'.repeat(60));
     lines.push('All authorities must be independently confirmed (NWLR / LPELR / Law Pavilion) before reliance.');
@@ -115,8 +119,12 @@ export function AuthorityVerify() {
                         : <Badge variant="warning" className="ml-2">Unverified</Badge>}
                       {live && (
                         <span className="ml-2">
-                          <Badge variant={live.verdict === 'REAL' ? 'success' : live.verdict === 'NOT FOUND' ? 'danger' : 'warning'}>Live: {live.verdict}</Badge>
-                          {live.url && <a href={live.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-xs text-emerald-600 dark:text-emerald-400 hover:underline">source</a>}
+                          {live.verdict === 'REAL' && live.url ? (
+                            <Badge variant="info">🌐 Web-sourced — confirm source</Badge>
+                          ) : (
+                            <Badge variant="danger">⚠️ Needs Verification</Badge>
+                          )}
+                          {live.url && <a href={live.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-xs text-blue-600 dark:text-blue-400 hover:underline">Open source to confirm</a>}
                         </span>
                       )}
                       {it.holding && <p className="text-xs text-slate-400 mt-0.5">{it.holding}</p>}

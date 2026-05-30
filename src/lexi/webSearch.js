@@ -17,8 +17,10 @@ export async function searchCaseLaw({ apiKey, model, query, signal }) {
     'real, current Nigerian authorities relevant to the query. For each result ' +
     'give: case name, citation (if found), court, year, the holding/relevance, ' +
     'and which source you used. NEVER invent a case or a citation — if you ' +
-    'cannot confirm one, say so. Prefer Law Pavilion, NWLR, official court and ' +
-    'reputable legal sources.';
+    'cannot confirm one, say so. RELEVANCE GATE: only include a case that is ' +
+    'genuinely on-point for the issue raised — a single incidental shared word ' +
+    'is NOT enough; silently ignore any candidate that is off-topic. Prefer Law ' +
+    'Pavilion, NWLR, official court and reputable legal sources.';
   const r = await generate({
     apiKey,
     model,
@@ -42,11 +44,18 @@ export async function verifyCitations({ apiKey, model, cases, signal }) {
     .join('\n');
 
   const system =
-    'You verify whether Nigerian case citations are REAL by searching the live ' +
-    'web. For EACH numbered case reply on its own line in EXACTLY this format:\n' +
+    'You verify whether Nigerian case citations are REAL by SEARCHING THE LIVE WEB. ' +
+    'Critical rules:\n' +
+    '• Citation format/plausibility is NEVER enough. Mark a case REAL only if your ' +
+    'live search ACTUALLY returned a confirming source, and you MUST give that ' +
+    'source URL.\n' +
+    '• If your search returned no confirming source — even if the citation looks ' +
+    'plausible or you "remember" the case — you MUST return NOT FOUND or UNCERTAIN ' +
+    '(never REAL) and put "-" for the URL.\n' +
+    '• Do not invent URLs or citations.\n' +
+    'For EACH numbered case reply on its own line in EXACTLY this format:\n' +
     '<number>. <VERDICT> | <case name> | <best citation found or "-"> | <source URL or "-"> | <one-line note>\n' +
-    'VERDICT must be one of: REAL, NOT FOUND, UNCERTAIN. Do not invent URLs or ' +
-    'citations — only report what you actually find. After the lines, stop.';
+    'VERDICT must be one of: REAL, NOT FOUND, UNCERTAIN. After the lines, stop.';
 
   const r = await generate({
     apiKey,
@@ -103,8 +112,11 @@ function parseVerdicts(text, cases) {
 export async function findPrecedents({ apiKey, model, query, signal }) {
   const system =
     'You are a Nigerian precedent finder searching the live web. Return up to 6 ' +
-    'of the most on-point, REAL Nigerian authorities for the issue. Output ONLY ' +
-    'one line per case in EXACTLY this pipe format and nothing else:\n' +
+    'of the most on-point, REAL Nigerian authorities for the issue. RELEVANCE ' +
+    'GATE: include a case ONLY if it is genuinely on-point — a single incidental ' +
+    'shared word is NOT enough; silently ignore any candidate that is not truly ' +
+    'on-point. Output ONLY one line per case in EXACTLY this pipe format and ' +
+    'nothing else:\n' +
     '<case name> | <citation or "-"> | <court> | <one-line why it is on point> | <source URL or "-">\n' +
     'Never invent a case, citation or URL. If you cannot confirm a citation use ' +
     '"-". If you find nothing solid, return a single line: NONE | - | - | no ' +
