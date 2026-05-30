@@ -19,7 +19,7 @@ export function Admin() {
   const preview = computeProfessionalFee({ base: 500000, vatRate: Number(f.vatRate) || 0, whtRate: Number(f.whtRate) || 0 });
 
   const save = () => {
-    setProfile({ ...f, allowedModels: allowed, hourlyRate: Number(f.hourlyRate), vatRate: Number(f.vatRate), whtRate: Number(f.whtRate), monthlyAiBudget: Number(f.monthlyAiBudget) });
+    setProfile({ ...f, allowedModels: allowed, hourlyRate: Number(f.hourlyRate), vatRate: Number(f.vatRate), whtRate: Number(f.whtRate), monthlyAiBudget: Number(f.monthlyAiBudget), aiPerMinute: Number(f.aiPerMinute), aiPerDay: Number(f.aiPerDay) });
     audit('SETTINGS_UPDATE', 'firm-admin');
     showToast('success', 'Firm settings saved.');
   };
@@ -62,7 +62,10 @@ export function Admin() {
           <Input label="Default court" value={f.defaultCourt} onChange={(e) => setF({ ...f, defaultCourt: e.target.value })} />
           <Input label="Default jurisdiction" value={f.defaultJurisdiction} onChange={(e) => setF({ ...f, defaultJurisdiction: e.target.value })} />
           <Input label="Monthly AI budget (USD)" type="number" value={f.monthlyAiBudget} onChange={(e) => setF({ ...f, monthlyAiBudget: e.target.value })} />
+          <Input label="AI calls / minute" type="number" value={f.aiPerMinute} onChange={(e) => setF({ ...f, aiPerMinute: e.target.value })} />
+          <Input label="AI calls / day" type="number" value={f.aiPerDay} onChange={(e) => setF({ ...f, aiPerDay: e.target.value })} />
         </div>
+        <p className="text-xs text-slate-400">Rate limits cap AI calls to protect your Gemini quota/spend. They apply per device (and per user when cloud login is enabled).</p>
         <div>
           <p className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Allowed models</p>
           <div className="flex flex-wrap gap-2">

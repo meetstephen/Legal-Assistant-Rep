@@ -23,6 +23,35 @@ const ALLOWED_MODELS = new Set([
   'gemini-2.0-flash',
 ]);
 
+// --- Best-effort per-IP rate limiting -------------------------------------
+// Fixed 60s window kept in instance memory. This throttles a single abusive
+// client per warm instance; for strong distributed limits across all edge
+// regions, back this with Upstash Redis or a Supabase counter. Tune with the
+// RATE_LIMIT_PER_MIN env var (0 disables).
+const WINDOW_MS = 60_000;
+const buckets = new Map();
+
+function clientIp(req) {
+  const fwd = req.headers.get('x-forwarded-for');
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.headers.get('x-real-ip') || 'unknown';
+}
+
+function rateLimit(ip, limit) {
+  if (!limit || limit <= 0) return { limited: false };
+  const now = Date.now();
+  const b = buckets.get(ip);
+  if (!b || now - b.start >= WINDOW_MS) {
+    buckets.set(ip, { count: 1, start: now });
+    return { limited: false };
+  }
+  b.count += 1;
+  if (b.count > limit) {
+    return { limited: true, retryAfter: Math.ceil((b.start + WINDOW_MS - now) / 1000) };
+  }
+  return { limited: false };
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405);
@@ -31,6 +60,16 @@ export default async function handler(req) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     return json({ error: 'Server is missing GEMINI_API_KEY' }, 500);
+  }
+
+  // Per-IP throttle (default 20/min; override with RATE_LIMIT_PER_MIN).
+  const perMin = Number(process.env.RATE_LIMIT_PER_MIN ?? 20);
+  const rl = rateLimit(clientIp(req), perMin);
+  if (rl.limited) {
+    return new Response(
+      JSON.stringify({ error: `Server rate limit reached. Try again in ${rl.retryAfter}s.` }),
+      { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': String(rl.retryAfter) } }
+    );
   }
 
   let payload;

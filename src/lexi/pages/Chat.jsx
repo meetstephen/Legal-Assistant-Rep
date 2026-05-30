@@ -33,7 +33,7 @@ const GREETING = {
 export function Chat() {
   const {
     apiKey, aiReady, model, webGrounding, profile, cases, navigate,
-    recordUsage, audit, showToast, saveAnalysis, pushHistory,
+    recordUsage, audit, showToast, saveAnalysis, pushHistory, guardAi,
   } = useApp();
 
   const [messages, setMessages] = useState(() => {
@@ -89,6 +89,7 @@ export function Chat() {
       showToast('warning', 'Add your Gemini API key in Profile → AI Settings first.');
       return;
     }
+    if (!guardAi()) return;
     const userText = doc ? `${text}\n\n${wrapDocument(doc.sanitized)}` : text;
     const userMsg = { id: generateId(), role: 'user', text: text || `(document: ${doc.name})`, sentText: userText };
     const modelMsg = { id: generateId(), role: 'model', text: '', thoughts: '', sources: [], queries: [], scores: null, streaming: true };

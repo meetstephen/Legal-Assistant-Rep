@@ -15,7 +15,7 @@ import { Card, Button, Textarea, PageHeader, Badge } from '../components/ui.jsx'
 import { downloadBlob } from '../utils.js';
 
 export function AuthorityVerify() {
-  const { apiKey, aiReady, model, showToast, recordUsage, audit, profile } = useApp();
+  const { apiKey, aiReady, model, showToast, recordUsage, audit, profile, guardAi } = useApp();
   const [text, setText] = useState('');
   const [result, setResult] = useState(null);
   const [verdicts, setVerdicts] = useState(null);
@@ -31,6 +31,7 @@ export function AuthorityVerify() {
   const verifyLive = async () => {
     if (!result?.items.length) return;
     if (!aiReady) { showToast('warning', 'Add your Gemini API key in Profile first.'); return; }
+    if (!guardAi()) return;
     setBusy(true);
     try {
       const { verdicts: v, usage } = await verifyCitations({

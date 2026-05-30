@@ -28,7 +28,7 @@ function parseItems(text) {
 }
 
 export function PracticeUpdates() {
-  const { apiKey, aiReady, model, showToast, recordUsage, audit } = useApp();
+  const { apiKey, aiReady, model, showToast, recordUsage, audit, guardAi } = useApp();
   const [topic, setTopic] = useState('');
   const [busy, setBusy] = useState(false);
   const [items, setItems] = useState(null);
@@ -41,6 +41,7 @@ export function PracticeUpdates() {
       showToast('warning', 'Add your Gemini API key in Profile first.');
       return;
     }
+    if (!guardAi()) return;
     setBusy(true);
     setItems(null);
     try {

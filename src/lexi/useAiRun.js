@@ -8,7 +8,7 @@ import { streamGenerate } from './ai.js';
 import { parseConfidence } from './prompts.js';
 
 export function useAiRun(feature = 'ai') {
-  const { apiKey, aiReady, model, webGrounding, recordUsage, audit, showToast } = useApp();
+  const { apiKey, aiReady, model, webGrounding, recordUsage, audit, showToast, guardAi } = useApp();
   const [running, setRunning] = useState(false);
   const [text, setText] = useState('');
   const [thoughts, setThoughts] = useState('');
@@ -42,6 +42,7 @@ export function useAiRun(feature = 'ai') {
         showToast('warning', 'Add your Gemini API key in Profile → Settings first.');
         return null;
       }
+      if (!guardAi()) return null;
       reset();
       setRunning(true);
       const controller = new AbortController();
@@ -84,7 +85,7 @@ export function useAiRun(feature = 'ai') {
         abortRef.current = null;
       }
     },
-    [apiKey, aiReady, model, webGrounding, recordUsage, audit, showToast, reset, feature]
+    [apiKey, aiReady, model, webGrounding, recordUsage, audit, showToast, guardAi, reset, feature]
   );
 
   return {

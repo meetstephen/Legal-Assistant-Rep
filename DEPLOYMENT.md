@@ -93,19 +93,36 @@ In your Vercel project → **Settings → Environment Variables**, add:
 
 Redeploy (Deployments → ⋯ → Redeploy) so the build picks up the new vars.
 
-> **Status of Supabase wiring:** this repo ships the **schema, RLS policies, env wiring and runtime detection** (`SUPABASE_ENABLED` in `src/lexi/runtime.js`). The data layer (`src/lexi/database.js`) is written behind a single `storage` interface, so connecting it is a contained change: on sign-in, load the user's `workspaces.data` row into the store and debounce-save it back on change. Until you wire that, the app uses local storage and ignores the Supabase vars. See "Wiring Supabase" below.
+### C5. That's it — login is now on
+Once those two vars are present at build time, the app **automatically**:
+- shows a **login / sign-up screen** (email + password, or magic link) before the workspace;
+- on sign-in, **loads that user's workspace** from the `workspaces` table and hydrates the app;
+- **auto-saves** changes back to the cloud (debounced) — you'll see the sync status in **Profile** (e.g. "Synced to cloud"), with a **Sign out** button there;
+- keeps every user's data **isolated** via the RLS policies from `schema.sql`.
 
-### Wiring Supabase (developer note)
-`src/lexi/database.js` exposes `storage.get/set/exportAll/importAll`. To go cloud-backed:
-1. `npm i @supabase/supabase-js` and create a client from the two `VITE_SUPABASE_*` vars.
-2. Add a small sign-in screen (Supabase `signInWithOtp` / `signInWithPassword`).
-3. On auth state "signed in", `select data from workspaces where user_id = auth.uid()` and `storage.importAll(data)` (then refresh state).
-4. Subscribe to store writes (debounced) and `upsert` `{ user_id, data: storage.exportAll() }` back to `workspaces`.
-RLS guarantees isolation, so no server code is needed for persistence.
+No code changes needed — it's wired in (`src/lexi/supabase.js` + `AppContext`). With the vars **absent**, the app silently stays in local-only mode (no login).
+
+> Cloud sync covers your workspace data (cases, clients, tasks, analyses, templates, audit log, profile, chat). Device-only items (theme, a locally-entered BYOK key) are intentionally **not** synced.
 
 ---
 
-## Part D — Local development
+## Part D — Rate limiting (protect your key/quota)
+
+Two layers, both already built in:
+
+**1. Client-side (per user/device)** — caps AI calls per-minute and per-day before they're sent. Tune in **Admin → Firm Admin Settings**: *AI calls / minute* and *AI calls / day*. Defaults: 12/min, 300/day. When exceeded, the user sees a friendly "rate limit reached" toast.
+
+**2. Server-side (per IP, in the proxy)** — `api/gemini.js` enforces a best-effort per-IP limit and returns HTTP **429**, which the client surfaces. Configure with the server env var:
+
+| Name | Value | Notes |
+|---|---|---|
+| `RATE_LIMIT_PER_MIN` | e.g. `20` | Requests/min per IP; `0` disables. Server-side only. |
+
+> The server limiter is in-memory per edge instance (best-effort). For strict, globally-consistent limits, back it with **Upstash Redis** or a **Supabase** counter table — the hook is marked in `api/gemini.js`.
+
+---
+
+## Part E — Local development
 
 ```bash
 cp .env.example .env        # fill in values
@@ -127,9 +144,9 @@ npm run ci                  # eslint + vitest + vite build
 
 ---
 
-## Part E — Deploying on Netlify instead
+## Part F — Deploying on Netlify instead
 
-Netlify hosts the static SPA equally well (`netlify.toml` is included). The one difference: the proxy. Netlify uses **Netlify Functions** rather than Vercel Edge Functions, so port `api/gemini.js` to `netlify/functions/gemini.js` (same logic; export a `handler`) and set `GEMINI_API_KEY` + `VITE_USE_PROXY=true` in **Site settings → Environment variables**. For a pure BYOK static deploy, no function is needed and Netlify works with zero changes.
+Netlify hosts the static SPA equally well (`netlify.toml` is included). The one difference: the proxy. Netlify uses **Netlify Functions** rather than Vercel Edge Functions, so port `api/gemini.js` to `netlify/functions/gemini.js` (same logic; export a `handler`) and set `GEMINI_API_KEY` + `VITE_USE_PROXY=true` in **Site settings → Environment variables**. The Supabase vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) work identically on Netlify. For a pure BYOK static deploy, no function is needed and Netlify works with zero changes.
 
 ---
 
@@ -138,6 +155,8 @@ Netlify hosts the static SPA equally well (`netlify.toml` is included). The one 
 - [ ] `GEMINI_API_KEY` is set **without** the `VITE_` prefix (so it stays server-side).
 - [ ] `VITE_USE_PROXY=true` so the client uses `/api/gemini`.
 - [ ] In DevTools → Network, AI calls hit `/api/gemini`, not `googleapis.com`, and carry no key.
+- [ ] `RATE_LIMIT_PER_MIN` set on the server, and per-user limits set in **Admin** (client-side).
 - [ ] Supabase **service_role** key is **never** put in any `VITE_` var or the client.
 - [ ] Supabase RLS is **enabled** on every table (the provided `schema.sql` does this).
+- [ ] After enabling Supabase, confirm a second account cannot see the first account's data.
 - [ ] Rotate the Gemini key if it was ever pasted somewhere public.

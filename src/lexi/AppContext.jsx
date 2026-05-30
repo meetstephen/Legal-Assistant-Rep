@@ -7,6 +7,7 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useRef,
   useCallback,
   useMemo,
 } from 'react';
@@ -16,10 +17,23 @@ import { generateId } from './utils.js';
 import { appendAudit, buildUsageRecord } from './helpers.js';
 import { DEFAULT_TEMPLATES, FEE_DEFAULTS } from './legalData.js';
 import { DEFAULT_MODEL } from './ai.js';
-import { USE_PROXY } from './runtime.js';
+import { USE_PROXY, SUPABASE_ENABLED } from './runtime.js';
 import { obfuscate, deobfuscate } from './crypto.js';
+import {
+  getSessionUser, onAuthChange, signInWithPassword, signUpWithPassword,
+  signInWithMagicLink, signOut as sbSignOut, loadWorkspace, saveWorkspace,
+} from './supabase.js';
+import { evaluateRateLimit, prune, RATE_DEFAULTS } from './rateLimit.js';
 
 const AppContext = createContext(null);
+
+// Workspace slices that sync to the cloud (excludes device-local settings and
+// the locally-stored API key).
+const CLOUD_KEYS = [
+  STORAGE_KEYS.CASES, STORAGE_KEYS.CLIENTS, STORAGE_KEYS.TASKS, STORAGE_KEYS.TIME_ENTRIES,
+  STORAGE_KEYS.ANALYSES, STORAGE_KEYS.AI_HISTORY, STORAGE_KEYS.AI_USAGE, STORAGE_KEYS.TEMPLATES,
+  STORAGE_KEYS.AUDIT_LOG, STORAGE_KEYS.PROFILE, STORAGE_KEYS.ADMIN_CASES, STORAGE_KEYS.CHAT,
+];
 
 export const useApp = () => {
   const ctx = useContext(AppContext);
@@ -46,6 +60,9 @@ const DEFAULT_PROFILE = {
   monthlyAiBudget: 20,
   notifyEmail: '',
   reminderWindow: 7,
+  // AI rate limits (per authenticated user / device)
+  aiPerMinute: RATE_DEFAULTS.perMinute,
+  aiPerDay: RATE_DEFAULTS.perDay,
 };
 
 export function AppProvider({ children }) {
@@ -73,6 +90,13 @@ export function AppProvider({ children }) {
 
   // ---- toasts ----
   const [toasts, setToasts] = useState([]);
+
+  // ---- auth / cloud sync (Supabase) ----
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(SUPABASE_ENABLED);
+  const [cloudStatus, setCloudStatus] = useState('idle'); // idle | syncing | synced | error
+  const syncReadyRef = useRef(false);
+  const saveTimerRef = useRef(null);
 
   // ---- effects: theme + persistence ----
   useEffect(() => {
@@ -229,6 +253,137 @@ export function AppProvider({ children }) {
     audit('BACKUP', 'restore');
   }, [audit]);
 
+  // ---- cloud sync helpers ----
+  const rehydrateFromStorage = useCallback(() => {
+    setCases(storage.get(STORAGE_KEYS.CASES, []));
+    setClients(storage.get(STORAGE_KEYS.CLIENTS, []));
+    setTasks(storage.get(STORAGE_KEYS.TASKS, []));
+    setTimeEntries(storage.get(STORAGE_KEYS.TIME_ENTRIES, []));
+    setAnalyses(storage.get(STORAGE_KEYS.ANALYSES, []));
+    setAiHistory(storage.get(STORAGE_KEYS.AI_HISTORY, []));
+    setAiUsage(storage.get(STORAGE_KEYS.AI_USAGE, []));
+    setTemplates(storage.get(STORAGE_KEYS.TEMPLATES, DEFAULT_TEMPLATES));
+    setAuditLog(storage.get(STORAGE_KEYS.AUDIT_LOG, []));
+    setProfileState({ ...DEFAULT_PROFILE, ...storage.get(STORAGE_KEYS.PROFILE, {}) });
+  }, []);
+
+  const resetLocalData = useCallback(() => {
+    [
+      STORAGE_KEYS.CASES, STORAGE_KEYS.CLIENTS, STORAGE_KEYS.TASKS, STORAGE_KEYS.TIME_ENTRIES,
+      STORAGE_KEYS.ANALYSES, STORAGE_KEYS.AI_HISTORY, STORAGE_KEYS.AI_USAGE, STORAGE_KEYS.AUDIT_LOG,
+      STORAGE_KEYS.CHAT, STORAGE_KEYS.ADMIN_CASES,
+    ].forEach((k) => storage.remove(k));
+    setCases([]); setClients([]); setTasks([]); setTimeEntries([]); setAnalyses([]);
+    setAiHistory([]); setAiUsage([]); setAuditLog([]); setTemplates(DEFAULT_TEMPLATES);
+    setProfileState(DEFAULT_PROFILE);
+  }, []);
+
+  // Initialise auth (only when Supabase is configured).
+  useEffect(() => {
+    if (!SUPABASE_ENABLED) return undefined;
+    let active = true;
+    (async () => {
+      try {
+        const u = await getSessionUser();
+        if (active) setUser(u);
+      } catch {
+        /* ignore */
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    })();
+    const unsub = onAuthChange((u) => setUser(u));
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, []);
+
+  // On sign-in pull the user's workspace; on sign-out clear local data.
+  useEffect(() => {
+    if (!SUPABASE_ENABLED) return undefined;
+    let cancelled = false;
+    if (user) {
+      syncReadyRef.current = false;
+      setCloudStatus('syncing');
+      (async () => {
+        try {
+          const data = await loadWorkspace(user.id);
+          if (cancelled) return;
+          if (data && typeof data === 'object') {
+            Object.entries(data).forEach(([k, v]) => storage.set(k, v));
+            rehydrateFromStorage();
+          }
+          setCloudStatus('synced');
+        } catch {
+          if (!cancelled) setCloudStatus('error');
+        } finally {
+          if (!cancelled) syncReadyRef.current = true;
+        }
+      })();
+    } else {
+      syncReadyRef.current = false;
+      resetLocalData();
+      setCloudStatus('idle');
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [user, rehydrateFromStorage, resetLocalData]);
+
+  // Debounced push of the workspace to the cloud whenever data changes.
+  // Declared after the per-slice persistence effects so localStorage is fresh.
+  useEffect(() => {
+    if (!SUPABASE_ENABLED || !user || !syncReadyRef.current) return undefined;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        setCloudStatus('syncing');
+        const payload = {};
+        CLOUD_KEYS.forEach((k) => {
+          const v = storage.get(k, null);
+          if (v !== null) payload[k] = v;
+        });
+        await saveWorkspace(user.id, payload);
+        setCloudStatus('synced');
+      } catch {
+        setCloudStatus('error');
+      }
+    }, 1500);
+    return () => clearTimeout(saveTimerRef.current);
+  }, [user, cases, clients, tasks, timeEntries, analyses, aiHistory, aiUsage, templates, auditLog, profile]);
+
+  // ---- auth actions ----
+  const signIn = useCallback(async (email, password) => {
+    const u = await signInWithPassword(email, password);
+    setUser(u);
+    return u;
+  }, []);
+  const signUp = useCallback((email, password) => signUpWithPassword(email, password), []);
+  const magicLink = useCallback((email) => signInWithMagicLink(email), []);
+  const doSignOut = useCallback(async () => {
+    await sbSignOut();
+    setUser(null);
+    audit('LOGOUT', '');
+  }, [audit]);
+
+  // ---- AI rate-limit guard (returns true if the call may proceed) ----
+  const guardAi = useCallback(() => {
+    const now = Date.now();
+    const times = prune(storage.get('ai-call-times', []), now);
+    const res = evaluateRateLimit(times, {
+      perMinute: Number(profile.aiPerMinute) || RATE_DEFAULTS.perMinute,
+      perDay: Number(profile.aiPerDay) || RATE_DEFAULTS.perDay,
+      now,
+    });
+    if (!res.allowed) {
+      showToast('warning', res.reason);
+      return false;
+    }
+    storage.set('ai-call-times', [...times, now]);
+    return true;
+  }, [profile, showToast]);
+
   const value = useMemo(
     () => ({
       // settings
@@ -237,6 +392,15 @@ export function AppProvider({ children }) {
       // AI is "ready" if the server proxy holds the key, or the user set one
       aiReady: USE_PROXY || !!apiKey,
       useProxy: USE_PROXY,
+      // auth / cloud sync
+      supabaseEnabled: SUPABASE_ENABLED,
+      user,
+      authLoading,
+      cloudStatus,
+      isAuthed: !SUPABASE_ENABLED || !!user,
+      signIn, signUp, magicLink, signOut: doSignOut,
+      // AI rate-limit guard
+      guardAi,
       // nav
       activePage, pageParams, navigate,
       // data
@@ -261,6 +425,7 @@ export function AppProvider({ children }) {
       timeEntries, addTimeEntry, deleteTimeEntry, analyses, saveAnalysis, deleteAnalysis, aiHistory, pushHistory,
       aiUsage, recordUsage, templates, addTemplate, deleteTemplate, auditLog, audit, toasts, showToast, removeToast,
       exportBackup, importBackup,
+      user, authLoading, cloudStatus, signIn, signUp, magicLink, doSignOut, guardAi,
     ]
   );
 

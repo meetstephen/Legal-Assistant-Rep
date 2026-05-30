@@ -40,6 +40,8 @@ These go *further* than the build this mirrors:
 | New feature | Why it matters |
 |---|---|
 | 💬 **AI Chat (multi-turn)** | A persistent, streaming **conversation** that remembers context across turns — the original is single-shot only. Each reply carries its own reasoning trace, live-web sources, and citation audit. Attach a document or a **case as context**, and **save any reply straight to a case**. |
+| 🔐 **Supabase login + cloud sync** | Optional email auth (password or magic link). When enabled, each lawyer signs in and their workspace **syncs across devices**, isolated per user by Postgres **Row Level Security**. Off by default (local-only) until you set the env vars. |
+| 🚦 **AI rate limiting** | Client-side per-user caps (per-minute & per-day, set in Admin) **and** a server-side per-IP limit in the proxy (HTTP 429) — protects a shared key from runaway spend/abuse. |
 | ⏳➡️✅ **Deadline → Task** | The Deadline Calculator can **create a High-priority reminder task** (with the computed deadline and a verify-the-state-law note) in one click — connecting Tools to the Task Manager. |
 | 🔁 **Datastore migrations** | A versioned `migrator.js` upgrades older saved data on boot, so the workspace keeps working as the schema evolves. |
 | 🧪 **CI you can run locally** | `npm run ci` (eslint + vitest + build) reproduces the gate exactly. |
@@ -107,6 +109,8 @@ Live grounding uses **Google Search as a tool through the Gemini API**, which dr
 - **Prompt-injection protection** — `sanitizeDocContext()` strips control characters, detects known injection patterns, and wraps uploaded document text in hard "data-only" delimiters before it reaches the AI
 - **Optional workspace lock** — `src/lexi/auth.js` implements **PBKDF2-HMAC-SHA256 (260,000 iterations)** via Web Crypto with a **timing-safe compare** and a **5-attempt / 5-minute lockout** for shared-device use
 - **Local key handling** — your Gemini key is stored only in this browser (lightly obfuscated) and sent only to Google's API
+- **Optional Supabase auth + RLS** — email login (password/magic link); per-user workspace isolation enforced by Postgres Row Level Security
+- **AI rate limiting** — configurable per-user caps (Admin) + server-side per-IP throttle in the proxy
 - **Graceful AI fallback chain** — if a model rejects native thinking or the web-search tool, the call automatically steps down (thinking+search → search-only → plain) instead of failing
 - **XSS-safe rendering** — AI output is HTML-escaped before a small, safe markdown subset is applied
 
@@ -187,12 +191,13 @@ Firm name, lawyer details, bank details, and letterhead footer are pulled from *
 
 | Optional | Purpose |
 |---|---|
+| @supabase/supabase-js | Email auth + per-user cloud workspace sync |
 | pdfjs-dist | PDF document import (lazy-loaded) |
 | mammoth | DOCX import (lazy-loaded) |
 | Vitest | Unit + smoke tests |
 | ESLint | Linting |
 
-There is **no backend**: the app talks directly to the Gemini API from the browser using your own key, and persists workspace data in `localStorage`.
+There is **no required backend**: the app talks directly to the Gemini API from the browser using your own key (BYOK), and persists workspace data in `localStorage`. For a hosted, shared deployment you can optionally add the **Vercel Edge proxy** (to hide a server key) and **Supabase** (for login + cloud sync) — see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ---
 
@@ -219,6 +224,8 @@ The original Python package layout is mirrored module-for-module in JavaScript:
 │       ├── migrator.js            # datastore schema migrations           (≈ migrator.py)
 │       ├── crypto.js              # doc sanitisation + key obfuscation    (≈ crypto.py)
 │       ├── auth.js                # optional PBKDF2 workspace lock         (≈ auth.py)
+│       ├── supabase.js            # optional Supabase auth + cloud workspace sync
+│       ├── rateLimit.js           # client-side AI rate limiter (pure/testable)
 │       ├── themes.js              # theme engine + semantic tokens        (≈ themes.py)
 │       ├── exports.js             # TXT / HTML / PDF / DOC export          (≈ exports.py)
 │       ├── legalData.js           # Nigerian reference data
@@ -226,8 +233,12 @@ The original Python package layout is mirrored module-for-module in JavaScript:
 │       ├── useAiRun.js            # shared streaming-AI hook
 │       ├── nav.js                 # grouped navigation config
 │       ├── AppContext.jsx         # global state + actions
-│       ├── components/            # shared UI (ui, Layout, Toast, AiPanels, AiResult, PromptTool)
+│       ├── components/            # shared UI (ui, Layout, Toast, AiPanels, AiResult, PromptTool, AuthGate)
 │       └── pages/                 # one module per screen                 (≈ lexi/pages/)
+├── api/
+│   └── gemini.js                  # Vercel Edge Function: secure Gemini proxy (hides key)
+├── supabase/
+│   └── schema.sql                 # per-user workspaces table + RLS policies
 ├── tests/                         # Vitest smoke + unit tests             (≈ tests/)
 ├── .github/workflows/ci.yml       # lint + test + build CI
 ├── netlify.toml                   # Netlify config (SPA rewrite)

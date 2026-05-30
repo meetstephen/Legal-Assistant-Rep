@@ -154,7 +154,8 @@ function mergeChunk(chunk, acc, handlers) {
 async function readErr(res) {
   try {
     const j = await res.json();
-    return j?.error?.message || `Request failed (${res.status})`;
+    const msg = typeof j?.error === 'string' ? j.error : j?.error?.message;
+    return msg || `Request failed (${res.status})`;
   } catch {
     return `Request failed (${res.status})`;
   }
@@ -203,6 +204,8 @@ export async function streamGenerate({
     }
     if (!res.ok || !res.body) {
       lastErr = await readErr(res);
+      // A rate-limit response won't improve on a lower tier — stop early.
+      if (res.status === 429) break;
       // Step down the fallback chain on tool/thinking rejection or other errors.
       continue;
     }
@@ -285,6 +288,7 @@ export async function generate({
     if (!res.ok) {
        
       lastErr = await readErr(res);
+      if (res.status === 429) break;
       continue;
     }
      

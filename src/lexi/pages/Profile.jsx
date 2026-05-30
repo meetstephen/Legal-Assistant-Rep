@@ -5,7 +5,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   User, KeyRound, Cpu, Bell, Database, Save, Download, Upload, Trash2,
-  Eye, EyeOff, BarChart3, Mail, Sun, Moon,
+  Eye, EyeOff, BarChart3, Mail, Sun, Moon, LogOut, Cloud, CloudOff,
 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { MODELS } from '../ai.js';
@@ -22,11 +22,44 @@ const TABS = [
   { id: 'data', label: 'Data', icon: Database },
 ];
 
+const CLOUD_LABEL = {
+  idle: { text: 'Local only', cls: 'text-slate-400' },
+  syncing: { text: 'Syncing…', cls: 'text-amber-500' },
+  synced: { text: 'Synced to cloud', cls: 'text-emerald-500' },
+  error: { text: 'Sync error', cls: 'text-red-500' },
+};
+
+function AccountCard() {
+  const { supabaseEnabled, user, cloudStatus, signOut, showToast } = useApp();
+  if (!supabaseEnabled) return null;
+  const c = CLOUD_LABEL[cloudStatus] || CLOUD_LABEL.idle;
+  return (
+    <Card variant="glass" className="flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+          <User className="w-5 h-5 text-emerald-500" />
+        </div>
+        <div>
+          <p className="font-medium text-slate-900 dark:text-white">{user?.email || 'Signed in'}</p>
+          <p className={cn('text-xs flex items-center gap-1', c.cls)}>
+            {cloudStatus === 'error' ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />} {c.text}
+          </p>
+        </div>
+      </div>
+      <Button variant="secondary" size="sm" leftIcon={<LogOut className="w-4 h-4" />}
+        onClick={async () => { await signOut(); showToast('info', 'Signed out.'); }}>
+        Sign out
+      </Button>
+    </Card>
+  );
+}
+
 export function Profile() {
   const [tab, setTab] = useState('firm');
   return (
     <div className="space-y-6">
       <PageHeader icon={User} title="Profile" subtitle="Firm details, AI settings, usage, notifications and data" gradient="from-slate-500 to-slate-700" />
+      <AccountCard />
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
