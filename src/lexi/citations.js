@@ -128,6 +128,20 @@ export const CURRENT_LAW_MAP = REPEALED.reduce((map, r) => {
   return map;
 }, new Map());
 
+// Validate that a citation has a plausible *shape* (year + recognised report
+// series, or an LPELR/SC electronic citation). NOTE: a valid shape is NEVER
+// proof a case is real — it only rules out obviously malformed citations. A
+// case earns the "web-sourced" badge ONLY when a live search returns a source.
+export function isValidCitationShape(citation = '') {
+  if (!citation) return false;
+  const hasYear = /\(\s*(19|20)\d{2}\s*\)/.test(citation) || /\b(19|20)\d{2}\b/.test(citation);
+  const series = [...NG_SERIES, 'AC', 'WLR', 'All ER', 'QB', 'KB', 'Ch'];
+  const hasSeries =
+    /LPELR[-\s]?\d+/i.test(citation) ||
+    series.some((s) => new RegExp(`\\b${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(citation));
+  return hasYear && hasSeries;
+}
+
 const norm = (s = '') =>
   s
     .toLowerCase()

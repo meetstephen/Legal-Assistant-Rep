@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState } from 'react';
-import { Scale, Sun, Moon, Menu, X, Globe, KeyRound, Search as SearchIcon, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
+import { Scale, Sun, Moon, Menu, X, Globe, KeyRound, Search as SearchIcon, ChevronLeft, ChevronRight as ChevronRightIcon, LogOut, Lock, User as UserIcon } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { NAV_SECTIONS } from '../nav.js';
 import { BRAND_LABEL, TAGLINE } from '../runtime.js';
@@ -81,6 +81,47 @@ function GroundingSwitch() {
   );
 }
 
+// Account / session bar: shows the signed-in user (cloud mode) and a way to
+// lock the workspace or sign out — the sidebar "logout" the user asked for.
+function AccountBar({ onAction }) {
+  const { supabaseEnabled, user, signOut, lockEnabled, lockNow, showToast } = useApp();
+  const canSignOut = supabaseEnabled && !!user;
+  const canLock = lockEnabled && !supabaseEnabled;
+  if (!canSignOut && !canLock) return null;
+
+  const doLock = () => { lockNow(); onAction && onAction(); };
+  const doSignOut = async () => { await signOut(); showToast('info', 'Signed out.'); onAction && onAction(); };
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
+      <div className="flex items-center gap-2 px-1 text-xs text-slate-500 dark:text-slate-400 min-w-0">
+        <div className="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+          <UserIcon className="w-3.5 h-3.5 text-emerald-500" />
+        </div>
+        <span className="truncate">{canSignOut ? user.email : 'This device'}</span>
+      </div>
+      <div className="flex gap-2">
+        {canLock && (
+          <button
+            onClick={doLock}
+            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+          >
+            <Lock className="w-3.5 h-3.5" /> Lock
+          </button>
+        )}
+        {canSignOut && (
+          <button
+            onClick={doSignOut}
+            className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
+          >
+            <LogOut className="w-3.5 h-3.5" /> Sign out
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Layout({ children }) {
   const { isDark, toggleTheme } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -142,6 +183,7 @@ export function Layout({ children }) {
               <div className="mt-5 flex-1">
                 <NavList />
               </div>
+              <AccountBar />
               <div className="pt-3 mt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-1.5 text-[10px] text-slate-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                 Private Beta
@@ -175,6 +217,7 @@ export function Layout({ children }) {
               <div className="mt-5">
                 <NavList onNavigate={() => setMobileOpen(false)} />
               </div>
+              <AccountBar onAction={() => setMobileOpen(false)} />
               <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-1.5 text-[10px] text-slate-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                 Private Beta

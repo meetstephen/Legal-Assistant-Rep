@@ -9,10 +9,10 @@
 import React, { useState } from 'react';
 import {
   Brain, ChevronDown, Globe, ExternalLink, ShieldCheck, AlertTriangle,
-  CheckCircle2, HelpCircle, XCircle, Loader2, BadgeCheck,
+  HelpCircle, Loader2, BadgeCheck,
 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
-import { auditCitations } from '../citations.js';
+import { auditCitations, isValidCitationShape } from '../citations.js';
 import { verifyCitations } from '../webSearch.js';
 import { confidenceBar, confidenceColor } from '../themes.js';
 import { cn } from '../utils.js';
@@ -106,11 +106,15 @@ export function ConfidenceMeter({ scores }) {
   );
 }
 
-const VERDICT_UI = {
-  REAL: { icon: CheckCircle2, cls: 'text-emerald-500', badge: 'success' },
-  'NOT FOUND': { icon: XCircle, cls: 'text-red-500', badge: 'danger' },
-  UNCERTAIN: { icon: HelpCircle, cls: 'text-amber-500', badge: 'warning' },
-};
+// ============================================================
+// CitationAudit — unified 3-tier per-case verification badges:
+//   ✓ Verified (in database)     — case matches the hand-verified DB
+//   🌐 Web-sourced — confirm src  — a LIVE search returned it WITH a source URL
+//   ⚠️ Needs Verification         — no confirming source, invalid shape, or risk
+// Citation format alone is never enough: "web-sourced" requires a real source.
+// ============================================================
+
+const normName = (s = '') => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 export function CitationAudit({ text }) {
   const { apiKey, aiReady, model, showToast, recordUsage, audit, guardAi } = useApp();
@@ -118,8 +122,42 @@ export function CitationAudit({ text }) {
   const [verifying, setVerifying] = useState(false);
   const [verdicts, setVerdicts] = useState(null);
   const [verifySources, setVerifySources] = useState([]);
+  const [checked, setChecked] = useState(false);
 
   if (!audited.items.length && !audited.foreign.length && !audited.repealed.length) return null;
+
+  const findVerdict = (item) => {
+    if (!verdicts) return null;
+    const k = normName(item.name);
+    return (
+      verdicts.find((v) => normName(v.name) === k) ||
+      verdicts.find((v) => normName(v.name).includes(k) || k.includes(normName(v.name)))
+    );
+  };
+
+  // Resolve each cited case to one of the three tiers.
+  const rows = audited.items.map((it) => {
+    if (it.status === 'verified') return { ...it, tier: 'db' };
+    const v = findVerdict(it);
+    if (v && v.verdict === 'REAL' && v.url) {
+      return { ...it, tier: 'web', url: v.url, webCitation: v.citation, note: v.note };
+    }
+    if (checked) {
+      return { ...it, tier: 'needs', note: (v && v.note) || 'The live search returned no confirming source.' };
+    }
+    if (it.hallucinationRisk) return { ...it, tier: 'needs', note: `Risk: ${it.hallucinationRisk}` };
+    if (it.citation && !isValidCitationShape(it.citation)) {
+      return { ...it, tier: 'needs', note: 'Citation shape is invalid — confirm before relying.' };
+    }
+    return { ...it, tier: 'pending' };
+  });
+
+  const counts = {
+    db: rows.filter((r) => r.tier === 'db').length,
+    web: rows.filter((r) => r.tier === 'web').length,
+    needs: rows.filter((r) => r.tier === 'needs').length,
+    pending: rows.filter((r) => r.tier === 'pending').length,
+  };
 
   const runVerify = async () => {
     if (!aiReady) {
@@ -132,10 +170,11 @@ export function CitationAudit({ text }) {
       const { verdicts: v, sources, usage } = await verifyCitations({
         apiKey,
         model,
-        cases: audited.items.map((i) => ({ name: i.name, citation: i.citation })),
+        cases: audited.items.filter((i) => i.status !== 'verified').map((i) => ({ name: i.name, citation: i.citation })),
       });
       setVerdicts(v);
       setVerifySources(sources || []);
+      setChecked(true);
       recordUsage('citation-verify', { model, usage, grounded: true });
       audit('AI_VERIFY', `${v.length} citation(s)`);
     } catch (e) {
@@ -145,41 +184,45 @@ export function CitationAudit({ text }) {
     }
   };
 
+  const TIER = {
+    db: { icon: BadgeCheck, cls: 'text-emerald-500', badge: 'success', label: '✓ Verified (in database)' },
+    web: { icon: Globe, cls: 'text-blue-500', badge: 'info', label: '🌐 Web-sourced — confirm source' },
+    needs: { icon: AlertTriangle, cls: 'text-red-500', badge: 'danger', label: '⚠️ Needs Verification' },
+    pending: { icon: HelpCircle, cls: 'text-amber-500', badge: 'warning', label: 'Unverified — run web check' },
+  };
+
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
-      <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+      <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 flex-wrap">
         <ShieldCheck className="w-4 h-4 text-emerald-500" /> Citation audit
         <span className="text-xs font-normal text-slate-400">
-          {audited.verifiedCount} verified · {audited.unverifiedCount} unverified
+          {counts.db} in DB · {counts.web} web-sourced · {counts.needs} need verification{counts.pending ? ` · ${counts.pending} unchecked` : ''}
         </span>
       </div>
 
-      {audited.items.length > 0 && (
-        <ul className="space-y-1.5">
-          {audited.items.map((it, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm">
-              {it.status === 'verified' ? (
-                <BadgeCheck className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-              ) : it.status === 'suspicious' ? (
-                <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-              ) : (
-                <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
-              )}
-              <span className="text-slate-700 dark:text-slate-300">
-                <span className="font-medium">{it.name}</span>
-                {it.verifiedCitation ? ` ${it.verifiedCitation}` : it.citation ? ` ${it.citation}` : ''}
-                {it.status === 'verified' ? (
-                  <Badge variant="success" className="ml-2">Verified</Badge>
-                ) : it.status === 'suspicious' ? (
-                  <Badge variant="danger" className="ml-2">Possible Hallucination</Badge>
-                ) : (
-                  <Badge variant="warning" className="ml-2">Unverified</Badge>
-                )}
-                {it.hallucinationRisk && <span className="block text-xs text-red-500 mt-0.5">Risk: {it.hallucinationRisk}</span>}
-                {it.holding && <span className="block text-xs text-slate-400">{it.holding}</span>}
-              </span>
-            </li>
-          ))}
+      {rows.length > 0 && (
+        <ul className="space-y-2">
+          {rows.map((it, i) => {
+            const t = TIER[it.tier];
+            const Icon = t.icon;
+            return (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <Icon className={cn('w-4 h-4 mt-0.5 flex-shrink-0', t.cls)} />
+                <span className="text-slate-700 dark:text-slate-300 min-w-0">
+                  <span className="font-medium">{it.name}</span>
+                  {it.verifiedCitation ? ` ${it.verifiedCitation}` : it.webCitation ? ` ${it.webCitation}` : it.citation ? ` ${it.citation}` : ''}
+                  <Badge variant={t.badge} className="ml-2">{t.label}</Badge>
+                  {it.tier === 'db' && it.holding && <span className="block text-xs text-slate-400 mt-0.5">{it.holding}</span>}
+                  {it.tier === 'web' && it.url && (
+                    <a href={it.url} target="_blank" rel="noopener noreferrer" className="block text-xs text-blue-600 dark:text-blue-400 hover:underline mt-0.5 inline-flex items-center gap-1">
+                      <ExternalLink className="w-3 h-3" /> Open source to confirm
+                    </a>
+                  )}
+                  {it.tier === 'needs' && it.note && <span className="block text-xs text-red-500 mt-0.5">{it.note}</span>}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -199,41 +242,18 @@ export function CitationAudit({ text }) {
         </p>
       )}
 
-      {audited.items.length > 0 && (
+      {(counts.pending > 0 || (!checked && counts.needs > 0)) && audited.items.some((i) => i.status !== 'verified') && (
         <Button size="sm" variant="outline" onClick={runVerify} isLoading={verifying} leftIcon={<Globe className="w-4 h-4" />}>
-          🔎 Verify cited case(s) on the live web
+          🔎 Verify non-database case(s) on the live web
         </Button>
       )}
-
-      {verdicts && (
-        <div className="space-y-1.5 border-t border-slate-200 dark:border-slate-700 pt-3">
-          {verdicts.map((v, i) => {
-            const ui = VERDICT_UI[v.verdict] || VERDICT_UI.UNCERTAIN;
-            const Icon = ui.icon;
-            return (
-              <div key={i} className="text-sm">
-                <div className="flex items-center gap-2">
-                  <Icon className={cn('w-4 h-4 flex-shrink-0', ui.cls)} />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">{v.name}</span>
-                  <Badge variant={ui.badge}>{v.verdict}</Badge>
-                </div>
-                {(v.citation || v.note) && (
-                  <p className="ml-6 text-xs text-slate-500 dark:text-slate-400">
-                    {v.citation} {v.note && `— ${v.note}`}
-                  </p>
-                )}
-                {v.url && (
-                  <a href={v.url} target="_blank" rel="noopener noreferrer" className="ml-6 text-xs text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
-                    <ExternalLink className="w-3 h-3" /> source
-                  </a>
-                )}
-              </div>
-            );
-          })}
-          {verifying && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
-          {verifySources.length > 0 && <GroundingSources sources={verifySources} />}
-        </div>
+      {checked && (
+        <p className="text-xs text-slate-400">
+          Web-sourced cases were genuinely surfaced by a live search — still open each source to confirm. Cases marked “Needs Verification” returned no confirming source; treat as unconfirmed.
+        </p>
       )}
+      {verifying && <Loader2 className="w-4 h-4 animate-spin text-slate-400" />}
+      {verifySources.length > 0 && <GroundingSources sources={verifySources} />}
     </div>
   );
 }

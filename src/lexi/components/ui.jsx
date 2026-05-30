@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { forwardRef, useEffect } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X, Eye, EyeOff } from 'lucide-react';
 import { cn } from '../utils.js';
 
 export const Button = forwardRef(function Button(
@@ -108,6 +108,52 @@ export const Textarea = forwardRef(function Textarea(
         )}
         {...props}
       />
+      {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+    </div>
+  );
+});
+
+// Password input with a show/hide eye toggle, so users can confirm what they typed.
+export const PasswordInput = forwardRef(function PasswordInput(
+  { className, label, error, hint, leftIcon, id, ...props },
+  ref
+) {
+  const [show, setShow] = React.useState(false);
+  const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  return (
+    <div className="w-full">
+      {label && (
+        <label htmlFor={inputId} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        {leftIcon && (
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">{leftIcon}</div>
+        )}
+        <input
+          ref={ref}
+          id={inputId}
+          type={show ? 'text' : 'password'}
+          className={cn(
+            'w-full rounded-xl border-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 py-2.5',
+            leftIcon ? 'pl-10 pr-11' : 'pl-4 pr-11',
+            error ? 'border-red-300 dark:border-red-700 focus:border-red-500' : 'border-slate-200 dark:border-slate-700 focus:border-emerald-500',
+            className
+          )}
+          {...props}
+        />
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          aria-label={show ? 'Hide password' : 'Show password'}
+          tabIndex={-1}
+        >
+          {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+        </button>
+      </div>
+      {hint && !error && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
       {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
     </div>
   );

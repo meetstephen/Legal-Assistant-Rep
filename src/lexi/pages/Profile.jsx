@@ -11,7 +11,7 @@ import { useApp } from '../AppContext.jsx';
 import { MODELS } from '../ai.js';
 import { summariseUsage, toCsv } from '../helpers.js';
 import { __version__ } from '../runtime.js';
-import { Card, Button, Input, Textarea, Select, Badge, Toggle, PageHeader } from '../components/ui.jsx';
+import { Card, Button, Input, Textarea, Select, Badge, Toggle, PageHeader, PasswordInput } from '../components/ui.jsx';
 import { formatDateTime, formatDate, downloadBlob, cn } from '../utils.js';
 
 const TABS = [
@@ -171,8 +171,8 @@ function SecurityTab() {
         <Card variant="glass" className="space-y-3">
           <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2"><KeyRound className="w-5 h-5 text-emerald-500" /> Change account password</h3>
           <div className="grid sm:grid-cols-2 gap-3">
-            <Input label="New password" type="password" value={pw} onChange={(e) => setPw(e.target.value)} hint="At least 8 characters." />
-            <Input label="Confirm new password" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+            <PasswordInput label="New password" value={pw} onChange={(e) => setPw(e.target.value)} hint="At least 8 characters." />
+            <PasswordInput label="Confirm new password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
           </div>
           <Button onClick={savePw} isLoading={busy} leftIcon={<Save className="w-4 h-4" />}>Update password</Button>
         </Card>
@@ -192,8 +192,8 @@ function SecurityTab() {
         ) : (
           <>
             <div className="grid sm:grid-cols-2 gap-3">
-              <Input label="New passcode" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} hint="At least 4 characters." />
-              <Input label="Confirm passcode" type="password" inputMode="numeric" value={pin2} onChange={(e) => setPin2(e.target.value)} />
+              <PasswordInput label="New passcode" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} hint="At least 4 characters." />
+              <PasswordInput label="Confirm passcode" inputMode="numeric" value={pin2} onChange={(e) => setPin2(e.target.value)} />
             </div>
             <Button onClick={savePin} isLoading={busy} leftIcon={<ShieldCheck className="w-4 h-4" />}>Enable passcode lock</Button>
           </>
