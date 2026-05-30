@@ -160,6 +160,8 @@ export function CitationAudit({ text }) {
             <li key={i} className="flex items-start gap-2 text-sm">
               {it.status === 'verified' ? (
                 <BadgeCheck className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+              ) : it.status === 'suspicious' ? (
+                <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
               ) : (
                 <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
               )}
@@ -168,9 +170,12 @@ export function CitationAudit({ text }) {
                 {it.verifiedCitation ? ` ${it.verifiedCitation}` : it.citation ? ` ${it.citation}` : ''}
                 {it.status === 'verified' ? (
                   <Badge variant="success" className="ml-2">Verified</Badge>
+                ) : it.status === 'suspicious' ? (
+                  <Badge variant="danger" className="ml-2">Possible Hallucination</Badge>
                 ) : (
                   <Badge variant="warning" className="ml-2">Unverified</Badge>
                 )}
+                {it.hallucinationRisk && <span className="block text-xs text-red-500 mt-0.5">Risk: {it.hallucinationRisk}</span>}
                 {it.holding && <span className="block text-xs text-slate-400">{it.holding}</span>}
               </span>
             </li>

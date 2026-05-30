@@ -173,6 +173,43 @@ function matchVerified(name) {
   );
 }
 
+// Heuristic: flag citations that look like they might be fabricated.
+// Returns a reason string if suspicious, or '' if it looks normal.
+function hallucinationRisk(name, citation) {
+  const reasons = [];
+  // No year at all in the citation
+  if (citation && !/\d{4}/.test(citation)) {
+    reasons.push('no year in citation');
+  }
+  // Implausible report series (not a known Nigerian or foreign one)
+  if (citation) {
+    const knownAny = [...NG_SERIES, ...FOREIGN_SERIES.map((s) => s.replace(/[^a-zA-Z ]/g, '').trim())];
+    const hasKnown = knownAny.some((s) => citation.includes(s));
+    if (!hasKnown && citation.length > 5) {
+      reasons.push('unrecognised report series');
+    }
+  }
+  // Very generic party names (single common word)
+  const genericNames = ['state', 'government', 'commissioner', 'attorney', 'minister', 'inspector'];
+  const parts = name.toLowerCase().split(/\s+v\s+/);
+  if (parts.length === 2) {
+    const [p1, p2] = parts;
+    if (genericNames.includes(p1.trim()) && genericNames.includes(p2.trim())) {
+      reasons.push('both parties are generic titles');
+    }
+  }
+  // Suspiciously round or future year
+  if (citation) {
+    const yearMatch = citation.match(/\((\d{4})\)/);
+    if (yearMatch) {
+      const yr = parseInt(yearMatch[1], 10);
+      if (yr > new Date().getFullYear()) reasons.push('future year');
+      if (yr < 1914) reasons.push('year predates Nigerian courts');
+    }
+  }
+  return reasons.join('; ');
+}
+
 // ------------------------------------------------------------
 // auditCitations(text) -> { items, verifiedCount, unverifiedCount, foreign, repealed }
 // ------------------------------------------------------------
@@ -185,10 +222,12 @@ export function auditCitations(text = '') {
     if (seen.has(key)) return;
     seen.add(key);
     const hit = matchVerified(name);
+    const risk = !hit ? hallucinationRisk(name, citation) : '';
     items.push({
       name,
       citation: citation || (hit ? hit.citation : ''),
-      status: hit ? 'verified' : 'unverified',
+      status: hit ? 'verified' : risk ? 'suspicious' : 'unverified',
+      hallucinationRisk: risk,
       verifiedCitation: hit ? hit.citation : '',
       holding: hit ? hit.holding : '',
       court: hit ? hit.court : '',
