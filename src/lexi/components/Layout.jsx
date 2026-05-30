@@ -86,7 +86,7 @@ function GroundingSwitch() {
 function AccountBar({ onAction }) {
   const { supabaseEnabled, user, signOut, lockEnabled, lockNow, showToast } = useApp();
   const canSignOut = supabaseEnabled && !!user;
-  const canLock = lockEnabled;
+  const canLock = lockEnabled && !supabaseEnabled;
   if (!canSignOut && !canLock) return null;
 
   const doLock = () => { lockNow(); onAction && onAction(); };

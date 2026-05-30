@@ -225,8 +225,12 @@ export function AuthGate({ children }) {
     }
     if (recovery) return <UpdatePasswordScreen />;
     if (!isAuthed) return <LoginScreen />;
+    // Cloud mode: Supabase IS the login wall — don't also impose the device
+    // passcode (that would be a confusing double login).
+    return children;
   }
 
+  // Local-only mode: the device passcode is the login wall.
   if (isLocked) return <LockScreen />;
 
   return children;
