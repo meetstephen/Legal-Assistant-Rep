@@ -3,12 +3,12 @@
 // ============================================================
 
 import React, { useState } from 'react';
-import { Scale, Sun, Moon, Menu, X, Globe, Sparkles, KeyRound, Search as SearchIcon } from 'lucide-react';
+import { Scale, Sun, Moon, Menu, X, Globe, KeyRound, Search as SearchIcon, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { NAV_SECTIONS } from '../nav.js';
 import { BRAND_LABEL, TAGLINE } from '../runtime.js';
 import { cn } from '../utils.js';
-import { Badge, Toggle } from './ui.jsx';
+import { Toggle, Badge } from './ui.jsx';
 
 function NavList({ onNavigate }) {
   const { activePage, navigate, cases, tasks, clients, profile } = useApp();
@@ -70,14 +70,12 @@ function GroundingSwitch() {
       <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-400">
         <KeyRound className="w-3 h-3" />
         {useProxy ? (
-          <span className="text-emerald-500">Key on server</span>
+          <span className="text-emerald-500">Key on server (secure)</span>
         ) : aiReady ? (
-          <span className="text-emerald-500">API key set</span>
+          <span className="text-emerald-500">API key configured</span>
         ) : (
           <span className="text-amber-500">No API key</span>
         )}
-        <span>·</span>
-        <span className="truncate">{model}</span>
       </div>
     </div>
   );
@@ -86,9 +84,10 @@ function GroundingSwitch() {
 export function Layout({ children }) {
   const { isDark, toggleTheme } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen lexi-app-bg text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen lexi-app-bg text-slate-900 dark:text-slate-100 flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-40 safe-top bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
         <div className="flex items-center justify-between h-16 px-4 lg:px-6 safe-x">
@@ -104,11 +103,8 @@ export function Layout({ children }) {
               <Scale className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-bold flex items-center gap-2">
+              <h1 className="text-base font-bold">
                 <span className="lexi-gradient-text">{BRAND_LABEL}</span>
-                <Badge variant="info" className="hidden sm:inline-flex">
-                  <Sparkles className="w-3 h-3" /> Gemini 2.5
-                </Badge>
               </h1>
               <p className="hidden sm:block text-[11px] text-slate-400 -mt-0.5">{TAGLINE}</p>
             </div>
@@ -134,18 +130,35 @@ export function Layout({ children }) {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex flex-1">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex flex-col w-64 flex-shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-r border-slate-200 dark:border-slate-800 p-4 overflow-y-auto thin-scrollbar">
-          <GroundingSwitch />
-          <div className="mt-5 flex-1">
-            <NavList />
-          </div>
-          <div className="pt-3 mt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-1.5 text-[10px] text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            Private Beta
-          </div>
+        <aside className={cn(
+          'hidden lg:flex flex-col flex-shrink-0 h-[calc(100vh-4rem)] sticky top-16 border-r border-slate-200 dark:border-slate-800 overflow-y-auto thin-scrollbar transition-all duration-200',
+          collapsed ? 'w-0 p-0 border-r-0 overflow-hidden' : 'w-64 p-4'
+        )}>
+          {!collapsed && (
+            <>
+              <GroundingSwitch />
+              <div className="mt-5 flex-1">
+                <NavList />
+              </div>
+              <div className="pt-3 mt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Private Beta
+              </div>
+            </>
+          )}
         </aside>
+
+        {/* Sidebar collapse/expand button (desktop) */}
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="hidden lg:flex items-center justify-center w-5 h-10 rounded-r-lg bg-slate-100 dark:bg-slate-800 border border-l-0 border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-500 fixed top-1/2 -translate-y-1/2 z-30 transition-all"
+          style={{ left: collapsed ? '0px' : '256px' }}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <ChevronRightIcon className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        </button>
 
         {/* Mobile drawer */}
         {mobileOpen && (
@@ -153,7 +166,7 @@ export function Layout({ children }) {
             <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
             <div className="absolute left-0 top-0 bottom-0 w-72 bg-white dark:bg-slate-900 p-4 overflow-y-auto thin-scrollbar animate-slideInRight">
               <div className="flex items-center justify-between mb-4">
-                <span className="font-bold">{BRAND_LABEL}</span>
+                <span className="font-bold lexi-gradient-text">{BRAND_LABEL}</span>
                 <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
                   <X className="w-5 h-5" />
                 </button>
@@ -171,10 +184,25 @@ export function Layout({ children }) {
         )}
 
         {/* Main */}
-        <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 safe-x safe-bottom max-w-6xl mx-auto w-full">
+        <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 safe-x max-w-6xl mx-auto w-full">
           {children}
         </main>
       </div>
+
+      {/* Footer */}
+      <footer className="safe-bottom border-t border-slate-200/60 dark:border-slate-800/60 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-4 lg:px-8 py-5 text-center text-xs text-slate-400 dark:text-slate-500 space-y-1">
+          <p className="font-medium text-slate-500 dark:text-slate-400">
+            ⚖️ LexiAssist · AI-Powered Legal Research &amp; Drafting for Nigerian Practice
+          </p>
+          <p>
+            Oyim Stephen Esq. &amp; Associates&nbsp;&nbsp;|&nbsp;&nbsp;Powered by LexiAssist 2.0&nbsp;&nbsp;|&nbsp;&nbsp;&copy; {new Date().getFullYear()}
+          </p>
+          <p className="text-[11px] italic text-slate-400/80 dark:text-slate-500/80">
+            Authorities are cited and verifiable · finalised under the supervising practitioner&apos;s judgment
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
