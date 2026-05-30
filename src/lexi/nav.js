@@ -6,7 +6,7 @@ import {
   Home, Brain, BookOpen, StickyNote, FolderOpen, ListChecks, ScrollText,
   ShieldAlert, Users, Calculator, Wrench, Newspaper, ShieldCheck, UserCheck,
   Handshake, FileSearch, Files, Search, User, HelpCircle, Lock, FileText,
-  Shield, History, MessageCircle,
+  Shield, History, MessageCircle, MessageSquarePlus,
 } from 'lucide-react';
 
 export const NAV_SECTIONS = [
@@ -53,6 +53,7 @@ export const NAV_SECTIONS = [
     title: '👤 Account',
     items: [
       { id: 'profile', label: 'Profile', icon: User },
+      { id: 'feedback', label: 'Feedback', icon: MessageSquarePlus },
       { id: 'help', label: 'Help', icon: HelpCircle },
       { id: 'privacy', label: 'Privacy', icon: Lock },
       { id: 'terms', label: 'Terms', icon: FileText },
