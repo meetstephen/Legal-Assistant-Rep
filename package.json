@@ -1,0 +1,36 @@
+{
+  "name": "lexiassist",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "description": "LexiAssist 2.0 - AI-powered legal workspace for Nigerian lawyers (React/Vite)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "ci": "npm run lint && npm run test && npm run build"
+  },
+  "dependencies": {
+    "lucide-react": "^0.453.0",
+    "mammoth": "^1.8.0",
+    "pdfjs-dist": "^4.7.76",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.13.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^15.11.0",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}
