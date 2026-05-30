@@ -55,7 +55,7 @@ function NavList({ onNavigate }) {
 }
 
 function GroundingSwitch() {
-  const { webGrounding, setWebGrounding, apiKey, model } = useApp();
+  const { webGrounding, setWebGrounding, aiReady, useProxy, model } = useApp();
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2">
       <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -69,7 +69,13 @@ function GroundingSwitch() {
       />
       <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-400">
         <KeyRound className="w-3 h-3" />
-        {apiKey ? <span className="text-emerald-500">API key set</span> : <span className="text-amber-500">No API key</span>}
+        {useProxy ? (
+          <span className="text-emerald-500">Key on server</span>
+        ) : aiReady ? (
+          <span className="text-emerald-500">API key set</span>
+        ) : (
+          <span className="text-amber-500">No API key</span>
+        )}
         <span>·</span>
         <span className="truncate">{model}</span>
       </div>

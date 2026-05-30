@@ -32,7 +32,7 @@ const GREETING = {
 
 export function Chat() {
   const {
-    apiKey, model, webGrounding, profile, cases, navigate,
+    apiKey, aiReady, model, webGrounding, profile, cases, navigate,
     recordUsage, audit, showToast, saveAnalysis, pushHistory,
   } = useApp();
 
@@ -85,7 +85,7 @@ export function Chat() {
   const send = async () => {
     const text = input.trim();
     if (!text && !doc) return;
-    if (!apiKey) {
+    if (!aiReady) {
       showToast('warning', 'Add your Gemini API key in Profile → AI Settings first.');
       return;
     }
@@ -172,7 +172,7 @@ export function Chat() {
         <Button variant="secondary" size="sm" onClick={newChat} leftIcon={<Plus className="w-4 h-4" />}>New chat</Button>
       </PageHeader>
 
-      {!apiKey && (
+      {!aiReady && (
         <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-sm text-amber-800 dark:text-amber-200">Add your Gemini API key to start chatting.</p>

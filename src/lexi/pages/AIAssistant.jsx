@@ -22,7 +22,7 @@ const ICON_MAP = {
 };
 
 export function AIAssistant() {
-  const { apiKey, webGrounding, profile, navigate, pageParams } = useApp();
+  const { aiReady, webGrounding, profile, navigate, pageParams } = useApp();
   const ai = useAiRun('ai-assistant');
   const followup = useAiRun('ai-followup');
 
@@ -132,7 +132,7 @@ export function AIAssistant() {
         gradient="from-violet-500 to-fuchsia-500"
       />
 
-      {!apiKey && (
+      {!aiReady && (
         <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-sm text-amber-800 dark:text-amber-200">

@@ -273,7 +273,9 @@ This is a static single-page app (a `dist/` folder of HTML/JS/CSS) with **no ser
 2. On Netlify → **Add new site → Import an existing project**.
 3. Build command `npm run build`, publish directory `dist` (already in `netlify.toml`). Click **Deploy**.
 
-> **Security note:** because this is a client-side app, the Gemini API key is supplied by each user and stored in their own browser. Do **not** bake a shared secret key into the build for a public deployment — anyone could read it. For a shared-key deployment, add a small serverless function (Vercel `api/` route or Netlify Function) to proxy the Gemini call and keep the key server-side.
+> **Security note:** because this is a client-side app, the Gemini API key is supplied by each user and stored in their own browser. Do **not** bake a shared secret key into the build for a public deployment — anyone could read it. **To deploy with your own key kept secret, use server-key mode:** this repo ships a Vercel Edge Function (`api/gemini.js`) that proxies Gemini with a server-side key. Set `GEMINI_API_KEY` (server-side) and `VITE_USE_PROXY=true` (build-time) in Vercel and the browser never sees the key.
+
+➡️ **Full step-by-step (secure key + Supabase database): see [`DEPLOYMENT.md`](DEPLOYMENT.md).**
 
 ---
 

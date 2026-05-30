@@ -65,12 +65,19 @@ function FirmTab() {
 }
 
 function SettingsTab() {
-  const { apiKey, setApiKey, model, setModel, webGrounding, setWebGrounding, isDark, toggleTheme, showToast, audit } = useApp();
+  const { apiKey, setApiKey, model, setModel, webGrounding, setWebGrounding, isDark, toggleTheme, showToast, audit, useProxy } = useApp();
   const [key, setKey] = useState(apiKey);
   const [show, setShow] = useState(false);
   const saveKey = () => { setApiKey(key.trim()); audit('SETTINGS_UPDATE', 'api-key'); showToast('success', 'API key saved locally.'); };
   return (
     <div className="space-y-4">
+      {useProxy && (
+        <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20">
+          <p className="text-sm text-emerald-800 dark:text-emerald-200">
+            🔒 <strong>Server key mode is ON.</strong> This deployment calls Gemini through a secure server proxy using a key held in server-side environment variables — your browser never sees it, and you don&apos;t need to enter one here.
+          </p>
+        </Card>
+      )}
       <Card variant="glass" className="space-y-3">
         <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2"><KeyRound className="w-5 h-5 text-emerald-500" /> Gemini API key</h3>
         <p className="text-sm text-slate-500">Stored only in this browser (obfuscated in localStorage). Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">Google AI Studio</a>. For live grounding, enable Google Search grounding on the key.</p>

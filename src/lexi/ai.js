@@ -12,6 +12,32 @@
 
 const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+import { USE_PROXY } from './runtime.js';
+
+// Single network entry point. In proxy mode the request is POSTed to the
+// serverless function (which injects the server-side key); otherwise it goes
+// straight to Google with the user's own key.
+function callGemini({ apiKey, model, stream, body, signal }) {
+  if (USE_PROXY) {
+    return fetch('/api/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, action: stream ? 'stream' : 'generate', body }),
+      signal,
+    });
+  }
+  const method = stream ? 'streamGenerateContent' : 'generateContent';
+  const suffix = stream
+    ? `?alt=sse&key=${encodeURIComponent(apiKey)}`
+    : `?key=${encodeURIComponent(apiKey)}`;
+  return fetch(`${API_ROOT}/${model}:${method}${suffix}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
 export const MODELS = [
   { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (recommended)' },
   { id: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash-Lite (fast/cheap)' },
@@ -153,7 +179,7 @@ export async function streamGenerate({
   onText,
   onLevel,
 }) {
-  if (!apiKey) throw new Error('Add your Gemini API key in Settings first.');
+  if (!apiKey && !USE_PROXY) throw new Error('Add your Gemini API key in Settings first.');
   const contentParts = parts || [{ text: userText || '' }];
   // Multi-turn: a `messages` array ([{role:'user'|'model', text}]) becomes the
   // full conversation; otherwise a single user turn is sent.
@@ -169,15 +195,7 @@ export async function streamGenerate({
     const body = buildBody({ systemInstruction, contents, level, mode });
     let res;
     try {
-      res = await fetch(
-        `${API_ROOT}/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal,
-        }
-      );
+      res = await callGemini({ apiKey, model, stream: true, body, signal });
     } catch (e) {
       if (e.name === 'AbortError') throw e;
       lastErr = e.message;
@@ -247,7 +265,7 @@ export async function generate({
   thinking = false,
   signal,
 }) {
-  if (!apiKey) throw new Error('Add your Gemini API key in Settings first.');
+  if (!apiKey && !USE_PROXY) throw new Error('Add your Gemini API key in Settings first.');
   const contentParts = parts || [{ text: userText || '' }];
   const contents = [{ role: 'user', parts: contentParts }];
   const levels = buildLevels(webGrounding, thinking);
@@ -258,16 +276,7 @@ export async function generate({
     const body = buildBody({ systemInstruction, contents, level, mode });
     let res;
     try {
-       
-      res = await fetch(
-        `${API_ROOT}/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal,
-        }
-      );
+      res = await callGemini({ apiKey, model, stream: false, body, signal });
     } catch (e) {
       if (e.name === 'AbortError') throw e;
       lastErr = e.message;

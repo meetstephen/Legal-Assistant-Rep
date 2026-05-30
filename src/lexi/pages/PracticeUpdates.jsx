@@ -28,7 +28,7 @@ function parseItems(text) {
 }
 
 export function PracticeUpdates() {
-  const { apiKey, model, showToast, recordUsage, audit } = useApp();
+  const { apiKey, aiReady, model, showToast, recordUsage, audit } = useApp();
   const [topic, setTopic] = useState('');
   const [busy, setBusy] = useState(false);
   const [items, setItems] = useState(null);
@@ -37,7 +37,7 @@ export function PracticeUpdates() {
   const deep = useAiRun('practice-deepdive');
 
   const load = async () => {
-    if (!apiKey) {
+    if (!aiReady) {
       showToast('warning', 'Add your Gemini API key in Profile first.');
       return;
     }

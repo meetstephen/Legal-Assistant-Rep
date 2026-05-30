@@ -113,7 +113,7 @@ const VERDICT_UI = {
 };
 
 export function CitationAudit({ text }) {
-  const { apiKey, model, showToast, recordUsage, audit } = useApp();
+  const { apiKey, aiReady, model, showToast, recordUsage, audit } = useApp();
   const audited = React.useMemo(() => auditCitations(text || ''), [text]);
   const [verifying, setVerifying] = useState(false);
   const [verdicts, setVerdicts] = useState(null);
@@ -122,7 +122,7 @@ export function CitationAudit({ text }) {
   if (!audited.items.length && !audited.foreign.length && !audited.repealed.length) return null;
 
   const runVerify = async () => {
-    if (!apiKey) {
+    if (!aiReady) {
       showToast('warning', 'Add your Gemini API key in Profile first.');
       return;
     }

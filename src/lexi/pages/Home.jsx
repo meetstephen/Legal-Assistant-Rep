@@ -13,7 +13,7 @@ import { BRAND_LABEL } from '../runtime.js';
 import { formatDate, formatRelativeDate, daysUntil, formatCurrency, cn } from '../utils.js';
 
 export function Home() {
-  const { cases, clients, tasks, timeEntries, navigate, profile, apiKey, webGrounding } = useApp();
+  const { cases, clients, tasks, timeEntries, navigate, profile, aiReady, webGrounding } = useApp();
 
   const upcoming = useMemo(() => {
     const out = [];
@@ -53,7 +53,7 @@ export function Home() {
     <div className="space-y-6">
       <PageHeader icon={HomeIcon} title={profile.firmName ? `Welcome, ${profile.firmName}` : `Welcome to ${BRAND_LABEL}`} subtitle="Your AI-assisted Nigerian legal workspace" gradient="from-emerald-400 to-teal-500" />
 
-      {!apiKey && (
+      {!aiReady && (
         <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>

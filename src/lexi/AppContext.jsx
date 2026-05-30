@@ -16,6 +16,7 @@ import { generateId } from './utils.js';
 import { appendAudit, buildUsageRecord } from './helpers.js';
 import { DEFAULT_TEMPLATES, FEE_DEFAULTS } from './legalData.js';
 import { DEFAULT_MODEL } from './ai.js';
+import { USE_PROXY } from './runtime.js';
 import { obfuscate, deobfuscate } from './crypto.js';
 
 const AppContext = createContext(null);
@@ -233,6 +234,9 @@ export function AppProvider({ children }) {
       // settings
       isDark, toggleTheme, apiKey, setApiKey, model, setModel,
       webGrounding, setWebGrounding, profile, setProfile,
+      // AI is "ready" if the server proxy holds the key, or the user set one
+      aiReady: USE_PROXY || !!apiKey,
+      useProxy: USE_PROXY,
       // nav
       activePage, pageParams, navigate,
       // data

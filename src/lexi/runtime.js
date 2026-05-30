@@ -22,6 +22,24 @@ export const DISCLAIMER =
 // Default jurisdiction context applied across the workspace.
 export const DEFAULT_JURISDICTION = 'Nigeria (Federal)';
 
+// Server-proxy mode. When VITE_USE_PROXY="true" the app routes every Gemini
+// call through the serverless function at /api/gemini, which injects the key
+// from a server-side env var (GEMINI_API_KEY). The key then NEVER reaches the
+// browser. When false (default), the app uses the user's own key (BYOK) stored
+// locally — useful for local dev and personal use.
+export const USE_PROXY =
+  typeof import.meta !== 'undefined' &&
+  import.meta.env &&
+  import.meta.env.VITE_USE_PROXY === 'true';
+
+// Optional Supabase config (multi-device cloud persistence). Present only when
+// both env vars are set at build time.
+export const SUPABASE_URL =
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_URL) || '';
+export const SUPABASE_ANON_KEY =
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) || '';
+export const SUPABASE_ENABLED = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+
 // Guarded feature flags — equivalent to runtime.py's guarded imports.
 // These detect whether optional browser capabilities are present so the UI
 // can degrade gracefully (e.g. document parsing libraries are loaded lazily).
