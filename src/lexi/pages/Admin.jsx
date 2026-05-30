@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shield, Save, Plus, BadgeCheck, Users, UserX, UserCheck, RotateCcw, Trash2, Star, MessageSquarePlus } from 'lucide-react';
+import { Shield, Save, Plus, BadgeCheck, UserX, UserCheck, RotateCcw, Trash2, Star, MessageSquarePlus } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { storage, STORAGE_KEYS } from '../database.js';
 import { registerVerifiedCases, VERIFIED_CASES } from '../citations.js';

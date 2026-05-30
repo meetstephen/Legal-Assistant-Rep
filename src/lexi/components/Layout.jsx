@@ -55,7 +55,7 @@ function NavList({ onNavigate }) {
 }
 
 function GroundingSwitch() {
-  const { webGrounding, setWebGrounding, aiReady, useProxy, model } = useApp();
+  const { webGrounding, setWebGrounding, aiReady, useProxy } = useApp();
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3 space-y-2">
       <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">

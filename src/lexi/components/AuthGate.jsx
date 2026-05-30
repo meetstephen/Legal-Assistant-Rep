@@ -155,13 +155,13 @@ function UpdatePasswordScreen() {
 }
 
 function LockScreen() {
-  const { unlockWithPasscode, lockEnabled, showToast, navigate } = useApp();
+  const { unlockWithPasscode, showToast } = useApp();
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
 
   // Check if it's the default/bootstrap passcode
-  const isBootstrap = (() => {
+  const isDefault = (() => {
     try {
       const rec = JSON.parse(localStorage.getItem('lexi2:app-lock') || 'null');
       return rec?.isDefault;
@@ -203,6 +203,11 @@ function LockScreen() {
         {msg && <p className="text-sm text-red-500 text-center">{msg}</p>}
       </form>
       <p className="mt-4 text-xs text-slate-400 text-center">Protected with PBKDF2-HMAC-SHA256 (260,000 iterations) and a 5-attempt lockout.</p>
+      {isDefault && (
+        <p className="mt-2 text-xs text-amber-500 dark:text-amber-400 text-center">
+          First time? The default passcode is <strong>admin</strong>. Please change it immediately in Profile → Security.
+        </p>
+      )}
     </Shell>
   );
 }
