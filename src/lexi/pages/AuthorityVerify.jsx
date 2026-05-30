@@ -128,7 +128,13 @@ export function AuthorityVerify() {
           )}
 
           {result.repealed.map((r, i) => (
-            <p key={i} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 mt-0.5" /> {r}</p>
+            <div key={i} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 mt-0.5" />
+              <div>
+                {r.note}
+                {r.current && <span className="block text-emerald-600 dark:text-emerald-400 mt-0.5">→ Cite instead: <strong>{r.current}</strong></span>}
+              </div>
+            </div>
           ))}
           {result.foreign.length > 0 && (
             <p className="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-1.5"><FileText className="w-3.5 h-3.5 mt-0.5" /> Foreign authorities ({result.foreign.join(', ')}) are persuasive only, not binding in Nigeria.</p>

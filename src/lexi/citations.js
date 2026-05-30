@@ -97,12 +97,36 @@ const FOREIGN_SERIES = [
 ];
 
 // Repealed / superseded instruments commonly mis-cited.
+// Each entry: pattern to detect, a note explaining the problem, and the
+// CURRENT replacement instrument the lawyer should cite instead.
 const REPEALED = [
-  { pattern: /Companies and Allied Matters Act,?\s*(19|20)?90|CAMA\s*1990/i, note: 'CAMA 1990 was repealed and replaced by CAMA 2020.' },
-  { pattern: /Evidence Act,?\s*(1945|2004)/i, note: 'The Evidence Act 1945/2004 was repealed and replaced by the Evidence Act 2011.' },
-  { pattern: /Criminal Procedure Act|Criminal Procedure Code/i, note: 'In federal courts and many states the CPA/CPC has been superseded by the ACJA 2015 (or state ACJLs). Confirm the rules in force in the relevant jurisdiction.' },
-  { pattern: /Companies Income Tax Act,?\s*1979/i, note: 'CITA 1979 has been substantially amended/consolidated; cite CITA Cap C21 LFN 2004 (as amended by the Finance Acts).' },
+  { pattern: /Companies and Allied Matters Act,?\s*(19|20)?90|CAMA\s*1990/i, note: 'CAMA 1990 was repealed and replaced by CAMA 2020.', current: 'Companies and Allied Matters Act (CAMA) 2020' },
+  { pattern: /Evidence Act,?\s*(1945|2004)/i, note: 'The Evidence Act 1945/2004 was repealed and replaced by the Evidence Act 2011.', current: 'Evidence Act 2011' },
+  { pattern: /Criminal Procedure Act|Criminal Procedure Code/i, note: 'In federal courts and many states the CPA/CPC has been superseded by the ACJA 2015 (or state ACJLs). Confirm the rules in force in the relevant jurisdiction.', current: 'Administration of Criminal Justice Act (ACJA) 2015 / state ACJL' },
+  { pattern: /Companies Income Tax Act,?\s*1979/i, note: 'CITA 1979 has been substantially amended/consolidated; cite CITA Cap C21 LFN 2004 (as amended by the Finance Acts).', current: 'CITA Cap C21 LFN 2004 (as amended by the Finance Acts 2019-2023)' },
+  { pattern: /Penal Code Act\b(?!\s*Law)|Penal Code(?:\s+Act)?(?!\s+Law)/i, note: 'The Penal Code (northern states) remains in force in most northern states, but confirm it has not been superseded by a state-specific Penal Code Law (e.g. Kaduna).', current: 'Penal Code Law of the relevant state (or the Penal Code Cap P3 LFN 2004)' },
+  { pattern: /Trade Union(?:s)? Act,?\s*(?:19|20)?73/i, note: 'Trade Unions Act 1973 was repealed; the consolidated version under Cap T14 LFN 2004 (as amended) applies.', current: 'Trade Unions Act Cap T14 LFN 2004 (as amended)' },
+  { pattern: /Matrimonial Causes Decree/i, note: 'The Matrimonial Causes Decree 1970 is now the Matrimonial Causes Act Cap M7 LFN 2004.', current: 'Matrimonial Causes Act Cap M7 LFN 2004' },
+  { pattern: /Land Use Decree/i, note: 'The Land Use Decree 1978 is now the Land Use Act Cap L5 LFN 2004 (and is given constitutional force under s.315).', current: 'Land Use Act Cap L5 LFN 2004' },
+  { pattern: /Workmen'?s Compensation Act/i, note: 'The Workmen\'s Compensation Act was repealed by the Employee\'s Compensation Act 2010.', current: 'Employee Compensation Act (ECA) 2010' },
+  { pattern: /National Drug Law Enforcement Agency Act,?\s*(?:19)?89/i, note: 'NDLEA Act 1989 — cite Cap N30 LFN 2004 (as amended) for the current version.', current: 'NDLEA Act Cap N30 LFN 2004 (as amended)' },
+  { pattern: /Investment and Securities Act,?\s*(?:19)?99/i, note: 'ISA 1999 was repealed by the Investments and Securities Act 2007.', current: 'Investments and Securities Act 2007' },
+  { pattern: /Banks and Other Financial Institutions Act,?\s*(?:19)?91|BOFIA\s*1991/i, note: 'BOFIA 1991 was repealed by BOFIA 2020.', current: 'Banks and Other Financial Institutions Act (BOFIA) 2020' },
+  { pattern: /Money Laundering.*?(?:2004|2011)|Money Laundering \(Prohibition\) Act\s*201[12]/i, note: 'The MLPA 2004/2011 has been repealed by the Money Laundering (Prevention and Prohibition) Act 2022.', current: 'Money Laundering (Prevention and Prohibition) Act (MLPPA) 2022' },
+  { pattern: /Pension Reform Act,?\s*(?:20)?04/i, note: 'PRA 2004 was repealed and replaced by the Pension Reform Act 2014.', current: 'Pension Reform Act 2014' },
+  { pattern: /Electoral Act,?\s*(?:20)?(06|10|22)\b/i, note: 'Confirm you are citing the CURRENT Electoral Act 2022 (as amended), not the repealed 2006 or 2010 versions.', current: 'Electoral Act 2022 (as amended)' },
+  { pattern: /Procurement Act,?\s*(?:20)?07/i, note: 'The Public Procurement Act 2007 remains in force, but confirm whether the 2023 Amendment has affected the section cited.', current: 'Public Procurement Act 2007 (as amended 2023)' },
+  { pattern: /Nigeria Data Protection (?:Regulation|NDPR)/i, note: 'The NDPR 2019 (a regulation) has been superseded by the Nigeria Data Protection Act (NDPA) 2023 (a statute).', current: 'Nigeria Data Protection Act (NDPA) 2023' },
+  { pattern: /Cybercrimes.*?(?:2015|Act\s*2015)/i, note: 'The Cybercrimes Act 2015 has been amended — cite "Cybercrimes (Prohibition, Prevention, etc.) Act 2015 (as amended 2024)".', current: 'Cybercrimes (Prohibition, Prevention, etc.) Act 2015 (as amended 2024)' },
+  { pattern: /Federal Inland Revenue Service.*?(?:2004|Establishment Act\s*2004)/i, note: 'FIRS Act 2004 has been substantially amended by the Finance Acts — confirm current provisions.', current: 'FIRS (Establishment) Act 2007 (as amended by Finance Acts)' },
+  { pattern: /Interpretation Act,?\s*(19|20)?64/i, note: 'The Interpretation Act 1964 is now Cap I23 LFN 2004.', current: 'Interpretation Act Cap I23 LFN 2004' },
 ];
+
+// A quick lookup for current-law suggestions used by the prompt builder.
+export const CURRENT_LAW_MAP = REPEALED.reduce((map, r) => {
+  if (r.current) map.set(r.pattern.source.slice(0, 40), r.current);
+  return map;
+}, new Map());
 
 const norm = (s = '') =>
   s
@@ -149,6 +173,43 @@ function matchVerified(name) {
   );
 }
 
+// Heuristic: flag citations that look like they might be fabricated.
+// Returns a reason string if suspicious, or '' if it looks normal.
+function hallucinationRisk(name, citation) {
+  const reasons = [];
+  // No year at all in the citation
+  if (citation && !/\d{4}/.test(citation)) {
+    reasons.push('no year in citation');
+  }
+  // Implausible report series (not a known Nigerian or foreign one)
+  if (citation) {
+    const knownAny = [...NG_SERIES, ...FOREIGN_SERIES.map((s) => s.replace(/[^a-zA-Z ]/g, '').trim())];
+    const hasKnown = knownAny.some((s) => citation.includes(s));
+    if (!hasKnown && citation.length > 5) {
+      reasons.push('unrecognised report series');
+    }
+  }
+  // Very generic party names (single common word)
+  const genericNames = ['state', 'government', 'commissioner', 'attorney', 'minister', 'inspector'];
+  const parts = name.toLowerCase().split(/\s+v\s+/);
+  if (parts.length === 2) {
+    const [p1, p2] = parts;
+    if (genericNames.includes(p1.trim()) && genericNames.includes(p2.trim())) {
+      reasons.push('both parties are generic titles');
+    }
+  }
+  // Suspiciously round or future year
+  if (citation) {
+    const yearMatch = citation.match(/\((\d{4})\)/);
+    if (yearMatch) {
+      const yr = parseInt(yearMatch[1], 10);
+      if (yr > new Date().getFullYear()) reasons.push('future year');
+      if (yr < 1914) reasons.push('year predates Nigerian courts');
+    }
+  }
+  return reasons.join('; ');
+}
+
 // ------------------------------------------------------------
 // auditCitations(text) -> { items, verifiedCount, unverifiedCount, foreign, repealed }
 // ------------------------------------------------------------
@@ -161,10 +222,12 @@ export function auditCitations(text = '') {
     if (seen.has(key)) return;
     seen.add(key);
     const hit = matchVerified(name);
+    const risk = !hit ? hallucinationRisk(name, citation) : '';
     items.push({
       name,
       citation: citation || (hit ? hit.citation : ''),
-      status: hit ? 'verified' : 'unverified',
+      status: hit ? 'verified' : risk ? 'suspicious' : 'unverified',
+      hallucinationRisk: risk,
       verifiedCitation: hit ? hit.citation : '',
       holding: hit ? hit.holding : '',
       court: hit ? hit.court : '',
@@ -179,7 +242,7 @@ export function auditCitations(text = '') {
 
   const repealed = [];
   REPEALED.forEach((r) => {
-    if (r.pattern.test(text)) repealed.push(r.note);
+    if (r.pattern.test(text)) repealed.push({ note: r.note, current: r.current || '' });
   });
 
   return {
@@ -187,7 +250,7 @@ export function auditCitations(text = '') {
     verifiedCount: items.filter((i) => i.status === 'verified').length,
     unverifiedCount: items.filter((i) => i.status === 'unverified').length,
     foreign: [...new Set(foreign)],
-    repealed: [...new Set(repealed)],
+    repealed,
     seriesDetected: NG_SERIES.filter((s) =>
       new RegExp(`\\b${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(text)
     ),

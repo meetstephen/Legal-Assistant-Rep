@@ -16,11 +16,20 @@ describe('citation audit', () => {
     expect(garba.status).toBe('verified');
   });
 
-  it('flags an unknown case as unverified', () => {
+  it('flags an unknown case with hallucination risk as suspicious', () => {
     const r = auditCitations('In Imaginary Plaintiff v Fictional Defendant (2099) the court held...');
     const hit = r.items.find((i) => /Imaginary/.test(i.name));
     expect(hit).toBeTruthy();
+    expect(hit.status).toBe('suspicious');
+    expect(hit.hallucinationRisk).toMatch(/future year/);
+  });
+
+  it('flags an unknown case without risk signals as unverified', () => {
+    const r = auditCitations('As held in Adamu v Bello (2018) 5 NWLR (Pt 1200) 100.');
+    const hit = r.items.find((i) => /Adamu/.test(i.name));
+    expect(hit).toBeTruthy();
     expect(hit.status).toBe('unverified');
+    expect(hit.hallucinationRisk).toBe('');
   });
 
   it('detects repealed instruments', () => {

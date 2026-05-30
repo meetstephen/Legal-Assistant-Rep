@@ -160,6 +160,8 @@ export function CitationAudit({ text }) {
             <li key={i} className="flex items-start gap-2 text-sm">
               {it.status === 'verified' ? (
                 <BadgeCheck className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+              ) : it.status === 'suspicious' ? (
+                <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
               ) : (
                 <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
               )}
@@ -168,9 +170,12 @@ export function CitationAudit({ text }) {
                 {it.verifiedCitation ? ` ${it.verifiedCitation}` : it.citation ? ` ${it.citation}` : ''}
                 {it.status === 'verified' ? (
                   <Badge variant="success" className="ml-2">Verified</Badge>
+                ) : it.status === 'suspicious' ? (
+                  <Badge variant="danger" className="ml-2">Possible Hallucination</Badge>
                 ) : (
                   <Badge variant="warning" className="ml-2">Unverified</Badge>
                 )}
+                {it.hallucinationRisk && <span className="block text-xs text-red-500 mt-0.5">Risk: {it.hallucinationRisk}</span>}
                 {it.holding && <span className="block text-xs text-slate-400">{it.holding}</span>}
               </span>
             </li>
@@ -179,9 +184,13 @@ export function CitationAudit({ text }) {
       )}
 
       {audited.repealed.map((r, i) => (
-        <p key={`r${i}`} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" /> Repealed/superseded: {r}
-        </p>
+        <div key={`r${i}`} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <div>
+            <span className="font-medium">Repealed/superseded:</span> {r.note}
+            {r.current && <span className="block text-emerald-600 dark:text-emerald-400 mt-0.5">→ Cite instead: <strong>{r.current}</strong></span>}
+          </div>
+        </div>
       ))}
       {audited.foreign.length > 0 && (
         <p className="text-xs text-blue-600 dark:text-blue-400 flex items-start gap-1.5">

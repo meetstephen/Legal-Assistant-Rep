@@ -31,6 +31,7 @@ import { Profile } from './lexi/pages/Profile.jsx';
 import { Help, Privacy, Terms } from './lexi/pages/InfoPages.jsx';
 import { Admin } from './lexi/pages/Admin.jsx';
 import { AuditLog } from './lexi/pages/AuditLog.jsx';
+import { Feedback } from './lexi/pages/Feedback.jsx';
 
 const PAGES = {
   home: Home,
@@ -58,6 +59,7 @@ const PAGES = {
   terms: Terms,
   audit: AuditLog,
   admin: Admin,
+  feedback: Feedback,
 };
 
 function Router() {

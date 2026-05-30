@@ -30,6 +30,8 @@ export const STORAGE_KEYS = {
   CHAT: 'chat-thread',
   APP_LOCK: 'app-lock',
   APP_LOCK_ATTEMPTS: 'app-lock-attempts',
+  ADMIN_USERS: 'admin-users',
+  FEEDBACK: 'feedback',
 };
 
 export const storage = {

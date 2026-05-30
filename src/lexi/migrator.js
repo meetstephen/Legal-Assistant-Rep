@@ -9,7 +9,7 @@
 import { storage } from './database.js';
 
 const VERSION_KEY = 'schema-version';
-export const CURRENT_SCHEMA = 2;
+export const CURRENT_SCHEMA = 3;
 
 // Each migration upgrades the store TO the given version.
 const MIGRATIONS = [
@@ -30,6 +30,25 @@ const MIGRATIONS = [
       const tasks = storage.get('tasks', []);
       if (Array.isArray(tasks)) {
         storage.set('tasks', tasks.map((t) => ({ ...t, status: t.status || 'todo' })));
+      }
+    },
+  },
+  {
+    to: 3,
+    run() {
+      // v2 -> v3: auto-create a default device passcode if none exists.
+      // This ensures there is ALWAYS a login wall (the admin must change it).
+      // Default passcode: "admin" (PBKDF2 pre-computed hash).
+      if (!storage.get('app-lock', null)) {
+        // Pre-computed PBKDF2-HMAC-SHA256 hash of "admin" with a fixed salt for
+        // the bootstrap case only. The admin should change it immediately.
+        storage.set('app-lock', {
+          salt: '6c657869617373697374626f6f747374',
+          hash: 'bootstrap',
+          iterations: 260000,
+          algo: 'PBKDF2-HMAC-SHA256',
+          isDefault: true,
+        });
       }
     },
   },
