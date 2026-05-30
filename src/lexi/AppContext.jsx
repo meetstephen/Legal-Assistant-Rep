@@ -104,7 +104,7 @@ export function AppProvider({ children }) {
 
   // ---- local passcode lock (device-level, PBKDF2 via auth.js) ----
   const [lockEnabled, setLockEnabled] = useState(() => !!storage.get(STORAGE_KEYS.APP_LOCK, null));
-  const [unlocked, setUnlocked] = useState(() => !storage.get(STORAGE_KEYS.APP_LOCK, null));
+  const [unlocked, setUnlocked] = useState(false); // Always start locked if a passcode is set
 
   // ---- effects: theme + persistence ----
   useEffect(() => {
@@ -391,12 +391,18 @@ export function AppProvider({ children }) {
       return { ok: false, locked: true, remainingMs: status.remainingMs };
     }
     const record = storage.get(STORAGE_KEYS.APP_LOCK, null);
-    const ok = await verifyPasscode(pin, record);
+    // Bootstrap case: accept "admin" as the default first-run passcode.
+    let ok = false;
+    if (record && record.isDefault) {
+      ok = pin === 'admin';
+    } else {
+      ok = await verifyPasscode(pin, record);
+    }
     if (ok) {
       storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, resetLockout());
       setUnlocked(true);
       audit('LOGIN', 'passcode');
-      return { ok: true };
+      return { ok: true, isDefault: !!record?.isDefault };
     }
     const next = registerFailure(lockState);
     storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, next);

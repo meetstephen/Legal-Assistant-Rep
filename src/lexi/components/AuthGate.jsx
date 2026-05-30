@@ -155,10 +155,18 @@ function UpdatePasswordScreen() {
 }
 
 function LockScreen() {
-  const { unlockWithPasscode } = useApp();
+  const { unlockWithPasscode, lockEnabled, showToast, navigate } = useApp();
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+
+  // Check if it's the default/bootstrap passcode
+  const isBootstrap = (() => {
+    try {
+      const rec = JSON.parse(localStorage.getItem('lexi2:app-lock') || 'null');
+      return rec?.isDefault;
+    } catch { return false; }
+  })();
 
   const submit = async (e) => {
     e.preventDefault();
@@ -167,7 +175,12 @@ function LockScreen() {
     setMsg('');
     try {
       const r = await unlockWithPasscode(pin);
-      if (r.ok) return;
+      if (r.ok) {
+        if (r.isDefault) {
+          showToast('warning', 'Change the default passcode in Profile → Security.');
+        }
+        return;
+      }
       if (r.locked) {
         const mins = r.remainingMs ? Math.ceil(r.remainingMs / 60000) : 5;
         setMsg(`Too many attempts — locked. Try again in ~${mins} min.`);
