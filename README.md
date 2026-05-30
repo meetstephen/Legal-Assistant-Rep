@@ -27,7 +27,7 @@ LexiAssist combines a jurisdiction-focused AI legal assistant with a full law-of
 | 🧠 Native reasoning ("thinking") | The Gemini 2.5 models reason through the Nigerian legal framework **before** writing the answer, using a native per-mode thinking budget. The reasoning trace is shown in a collapsible **"🧠 How LexiAssist reasoned"** panel so you can audit the logic. |
 | 🌐 App-wide live web grounding | A **single sidebar switch — "🌐 Live web grounding (all AI features)"** — puts *every* AI feature online: it searches the live web via Google and grounds the answer in **real, current sources with clickable links**, instead of training-memory. Verified-database grounding and the citation audit still layer on top. |
 | 📰 Practice Updates (always live) | The legal news / practice-update feed is **always** sourced live from the web — it fetches real, recent Nigerian developments and shows the **source link for each item**. No fabricated "news". |
-| 🔎 Real online research | **Research** (Case Law & Statutes) genuinely searches the live web for relevant Nigerian cases with source links, instead of relying on the model's memory. |
+| 🔎 Real online research | The **Quick Precedent Finder** (on Home and Research) and the main **Research** page genuinely search the live web for relevant Nigerian cases with source links, instead of relying on the model's memory. |
 | 🔍 One-click citation verification | Under the citation audit on any answer, **"🔎 Verify cited case(s) on the live web"** runs a live search and reports each case as **REAL / NOT FOUND / UNCERTAIN** with a source link. |
 | 📄 One-click document actions | Drop a contract / pleading / judgment and use one-click chips — **📄 Summarise · ⚠️ Spot Risks · 📋 Key Terms & Obligations · 🗣️ Explain to Client** — each runs instantly with the uploaded document attached. Whole documents are analysed (up to ~60 pages). |
 | 🤖 AI Usage tab | Per-call Gemini usage and estimated spend (today / month / all-time, charts, call log, CSV export) lives in **Profile → 🤖 AI Usage**. |
@@ -40,9 +40,16 @@ These go *further* than the build this mirrors:
 | New feature | Why it matters |
 |---|---|
 | 💬 **AI Chat (multi-turn)** | A persistent, streaming **conversation** that remembers context across turns — the original is single-shot only. Each reply carries its own reasoning trace, live-web sources, and citation audit. Attach a document or a **case as context**, and **save any reply straight to a case**. |
+| ⌘K **Command palette** | Press **⌘K / Ctrl+K** (or the header button) to fuzzy-jump to any page and run quick actions (toggle grounding/theme, open chat, sign out) — premium navigation a Streamlit app can't provide. |
+| 📲 **Installable PWA + offline** | A web manifest + service worker make LexiAssist **installable** ("Add to Home Screen") and load **offline** for non-AI features. |
+| 🧷 **Case → Chat integration** | "Ask AI" on any case opens the chat with that matter preloaded as context. |
 | 🔐 **Supabase login + cloud sync** | Optional email auth (password or magic link). When enabled, each lawyer signs in and their workspace **syncs across devices**, isolated per user by Postgres **Row Level Security**. Off by default (local-only) until you set the env vars. |
 | 🚦 **AI rate limiting** | Client-side per-user caps (per-minute & per-day, set in Admin) **and** a server-side per-IP limit in the proxy (HTTP 429) — protects a shared key from runaway spend/abuse. |
 | ⏳➡️✅ **Deadline → Task** | The Deadline Calculator can **create a High-priority reminder task** (with the computed deadline and a verify-the-state-law note) in one click — connecting Tools to the Task Manager. |
+| 🌙 **Dark by default** | Ships in dark theme (flash-free, respects a saved choice), with a one-click toggle. |
+| 🎨 **Premium UI** | Layered emerald/teal glow backdrop, glass cards, gradient brand — a polished feel beyond a stock dashboard. |
+| 📱 **Mobile-first + installable** | Responsive throughout with iOS safe-area support, plus an installable **PWA** (offline app shell). A **true native iOS/Android** build is a `npx cap add` away via the included Capacitor config (see `DEPLOYMENT.md`). |
+| 🛡️ **Hardened security** | Strict CSP + security headers, Supabase auth with password recovery, an optional PBKDF2 device-passcode lock, and dual-layer rate limiting. |
 | 🔁 **Datastore migrations** | A versioned `migrator.js` upgrades older saved data on boot, so the workspace keeps working as the schema evolves. |
 | 🧪 **CI you can run locally** | `npm run ci` (eslint + vitest + build) reproduces the gate exactly. |
 
@@ -78,7 +85,9 @@ Live grounding uses **Google Search as a tool through the Gemini API**, which dr
 - **Contract Review** — clause-by-clause risk matrix and signability grade
 - **Contract Version Diffing** — visual line-by-line diff of V1 vs V2 plus AI explanation of legal significance
 - **One-click document workflow** — upload PDF/DOCX/TXT/RTF/CSV/JSON (sanitised against prompt injection), then run Summarise / Spot Risks / Key Terms / Explain-to-Client in one click; whole-document analysis (~60 pages)
-- **Save to Case · Issue Spotting · Follow-up Questions · Case Strength Meter**
+- **Quality gate** — silent self-critique on the AI Assistant; a weak first draft triggers one automatic stricter regeneration (shown as a "Quality-checked" badge)
+- **Quick Precedent Finder** — fast, always-live search returning a compact list of on-point Nigerian authorities with source links (on Home and Research)
+- **Save to Case · Analysis Comparison · Issue Spotting · Follow-up Questions · Case Strength Meter**
 
 ### 🔍 Authority Verification (standalone page)
 - Paste any AI-generated argument, draft, or memo; every case citation is extracted and classified **Verified / Unverified**
@@ -106,10 +115,11 @@ Live grounding uses **Google Search as a tool through the Gemini API**, which dr
 - 17 event types, colour-coded, **hash-chained** (retroactive tampering is detectable), admin-viewable with filtering and CSV export
 
 ### 🔒 Security
+- **Authentication** — optional Supabase email login (password or magic link) with **forgot-password + password-recovery** flows; per-user data isolation via Postgres **Row Level Security**
+- **Device passcode lock** — an optional always-on login wall (`src/lexi/auth.js`): **PBKDF2-HMAC-SHA256 (260,000 iterations)** via Web Crypto, constant-time compare, and a **5-attempt / 5-minute lockout**
+- **Hardened HTTP headers** — strict **Content-Security-Policy** (no inline scripts), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, and HSTS (`vercel.json` / `netlify.toml`)
 - **Prompt-injection protection** — `sanitizeDocContext()` strips control characters, detects known injection patterns, and wraps uploaded document text in hard "data-only" delimiters before it reaches the AI
-- **Optional workspace lock** — `src/lexi/auth.js` implements **PBKDF2-HMAC-SHA256 (260,000 iterations)** via Web Crypto with a **timing-safe compare** and a **5-attempt / 5-minute lockout** for shared-device use
-- **Local key handling** — your Gemini key is stored only in this browser (lightly obfuscated) and sent only to Google's API
-- **Optional Supabase auth + RLS** — email login (password/magic link); per-user workspace isolation enforced by Postgres Row Level Security
+- **Local key handling** — your Gemini key is stored only in this browser (lightly obfuscated) and sent only to Google's API (or hidden entirely in server-key proxy mode)
 - **AI rate limiting** — configurable per-user caps (Admin) + server-side per-IP throttle in the proxy
 - **Graceful AI fallback chain** — if a model rejects native thinking or the web-search tool, the call automatically steps down (thinking+search → search-only → plain) instead of failing
 - **XSS-safe rendering** — AI output is HTML-escaped before a small, safe markdown subset is applied
@@ -233,8 +243,12 @@ The original Python package layout is mirrored module-for-module in JavaScript:
 │       ├── useAiRun.js            # shared streaming-AI hook
 │       ├── nav.js                 # grouped navigation config
 │       ├── AppContext.jsx         # global state + actions
-│       ├── components/            # shared UI (ui, Layout, Toast, AiPanels, AiResult, PromptTool, AuthGate)
+│       ├── components/            # shared UI (ui, Layout, Toast, AiPanels, AiResult, PromptTool, AuthGate, CommandPalette, QuickPrecedentFinder)
 │       └── pages/                 # one module per screen                 (≈ lexi/pages/)
+├── public/
+│   ├── favicon.svg                # app logo (tab icon)
+│   ├── manifest.webmanifest       # PWA manifest (installable)
+│   └── sw.js                      # service worker (offline app shell)
 ├── api/
 │   └── gemini.js                  # Vercel Edge Function: secure Gemini proxy (hides key)
 ├── supabase/

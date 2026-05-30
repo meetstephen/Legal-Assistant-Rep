@@ -3,7 +3,7 @@
 // ============================================================
 
 import React, { useState } from 'react';
-import { Scale, Sun, Moon, Menu, X, Globe, Sparkles, KeyRound } from 'lucide-react';
+import { Scale, Sun, Moon, Menu, X, Globe, Sparkles, KeyRound, Search as SearchIcon } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { NAV_SECTIONS } from '../nav.js';
 import { BRAND_LABEL, TAGLINE } from '../runtime.js';
@@ -88,10 +88,10 @@ export function Layout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen lexi-app-bg text-slate-900 dark:text-slate-100">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
-        <div className="flex items-center justify-between h-16 px-4 lg:px-6">
+      <header className="sticky top-0 z-40 safe-top bg-white/80 dark:bg-slate-900/70 backdrop-blur-xl border-b border-slate-200/70 dark:border-slate-800/70">
+        <div className="flex items-center justify-between h-16 px-4 lg:px-6 safe-x">
           <div className="flex items-center gap-3">
             <button
               className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -105,7 +105,7 @@ export function Layout({ children }) {
             </div>
             <div>
               <h1 className="text-base font-bold flex items-center gap-2">
-                {BRAND_LABEL}
+                <span className="lexi-gradient-text">{BRAND_LABEL}</span>
                 <Badge variant="info" className="hidden sm:inline-flex">
                   <Sparkles className="w-3 h-3" /> Gemini 2.5
                 </Badge>
@@ -113,13 +113,24 @@ export function Layout({ children }) {
               <p className="hidden sm:block text-[11px] text-slate-400 -mt-0.5">{TAGLINE}</p>
             </div>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
-            aria-label="Toggle theme"
-          >
-            {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new Event('lexi:open-command'))}
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm"
+              aria-label="Open command palette"
+            >
+              <SearchIcon className="w-4 h-4" />
+              <span>Search</span>
+              <kbd className="text-[10px] border border-slate-300 dark:border-slate-600 rounded px-1">⌘K</kbd>
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              aria-label="Toggle theme"
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -152,7 +163,7 @@ export function Layout({ children }) {
         )}
 
         {/* Main */}
-        <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 max-w-6xl mx-auto w-full">
+        <main className="flex-1 min-w-0 px-4 lg:px-8 py-6 safe-x safe-bottom max-w-6xl mx-auto w-full">
           {children}
         </main>
       </div>

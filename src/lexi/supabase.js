@@ -31,11 +31,30 @@ export async function getSessionUser() {
 }
 
 // Subscribe to auth changes; returns an unsubscribe function.
+// Callback receives (user, event) so callers can detect PASSWORD_RECOVERY.
 export function onAuthChange(cb) {
   const sb = getSupabase();
   if (!sb) return () => {};
-  const { data } = sb.auth.onAuthStateChange((_event, session) => cb(session?.user || null));
+  const { data } = sb.auth.onAuthStateChange((event, session) => cb(session?.user || null, event));
   return () => data?.subscription?.unsubscribe?.();
+}
+
+export async function sendPasswordReset(email) {
+  const sb = getSupabase();
+  if (!sb) throw new Error('Cloud sync is not configured.');
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+  });
+  if (error) throw error;
+  return true;
+}
+
+export async function updatePassword(newPassword) {
+  const sb = getSupabase();
+  if (!sb) throw new Error('Cloud sync is not configured.');
+  const { error } = await sb.auth.updateUser({ password: newPassword });
+  if (error) throw error;
+  return true;
 }
 
 export async function signInWithPassword(email, password) {

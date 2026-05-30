@@ -11,6 +11,7 @@ import { buildSystemPrompt, wrapDocument } from '../prompts.js';
 import { extractDocument, ACCEPTED_DOC_TYPES } from '../docParse.js';
 import { Card, Button, Input, Textarea, Toggle, PageHeader, Badge } from '../components/ui.jsx';
 import { AiResult } from '../components/AiResult.jsx';
+import { QuickPrecedentFinder } from '../components/QuickPrecedentFinder.jsx';
 import { cn } from '../utils.js';
 
 const TABS = [
@@ -79,6 +80,7 @@ export function Research() {
 
       {tab === 'caselaw' && (
         <>
+          <QuickPrecedentFinder />
           <Card variant="glass" className="space-y-4">
             <Textarea label="Research query" rows={4}
               placeholder="e.g. Remedies for breach of a building contract in Nigeria; relevant authorities on liquidated damages…"

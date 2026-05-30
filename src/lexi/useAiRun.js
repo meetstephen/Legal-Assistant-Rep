@@ -4,12 +4,14 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useApp } from './AppContext.jsx';
-import { streamGenerate } from './ai.js';
+import { streamGenerate, isWeakAnswer } from './ai.js';
 import { parseConfidence } from './prompts.js';
 
 export function useAiRun(feature = 'ai') {
   const { apiKey, aiReady, model, webGrounding, recordUsage, audit, showToast, guardAi } = useApp();
   const [running, setRunning] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [refined, setRefined] = useState(false);
   const [text, setText] = useState('');
   const [thoughts, setThoughts] = useState('');
   const [sources, setSources] = useState([]);
@@ -29,11 +31,14 @@ export function useAiRun(feature = 'ai') {
     setCleanText('');
     setError('');
     setGrounded(false);
+    setRefined(false);
+    setRefining(false);
   }, []);
 
   const stop = useCallback(() => {
     if (abortRef.current) abortRef.current.abort();
     setRunning(false);
+    setRefining(false);
   }, []);
 
   const run = useCallback(
@@ -49,7 +54,7 @@ export function useAiRun(feature = 'ai') {
       abortRef.current = controller;
       const useGrounding = opts.webGrounding != null ? opts.webGrounding : webGrounding;
       try {
-        const result = await streamGenerate({
+        let result = await streamGenerate({
           apiKey,
           model,
           mode: opts.mode || 'standard',
@@ -62,7 +67,37 @@ export function useAiRun(feature = 'ai') {
           onText: (_chunk, full) => setText(full),
           onThought: (_chunk, full) => setThoughts(full),
         });
-        const parsed = parseConfidence(result.text);
+        let parsed = parseConfidence(result.text);
+
+        // ---- Quality gate (opt-in): silently critique; if weak, regenerate
+        // once under stricter instructions. Off by default to control cost.
+        if (opts.qualityGate && opts.userText && !controller.signal.aborted) {
+          setRefining(true);
+          const weak = await isWeakAnswer({
+            apiKey, model, question: opts.userText, answer: parsed.cleanText, signal: controller.signal,
+          });
+          if (weak && !controller.signal.aborted) {
+            const stricter = `${opts.systemInstruction || ''}\n\nSTRICTER PASS: a first draft was judged weak. Be more rigorous and precise: ground every proposition in the correct Nigerian statute/section and a real authority, address counter-arguments, remove anything you cannot stand behind, and do NOT invent citations.`;
+            const second = await streamGenerate({
+              apiKey,
+              model,
+              mode: opts.mode || 'standard',
+              webGrounding: useGrounding,
+              thinking: opts.thinking !== false,
+              systemInstruction: stricter,
+              userText: opts.userText,
+              parts: opts.parts,
+              signal: controller.signal,
+              onText: (_chunk, full) => setText(full),
+              onThought: (_chunk, full) => setThoughts(full),
+            });
+            result = second;
+            parsed = parseConfidence(second.text);
+            setRefined(true);
+          }
+          setRefining(false);
+        }
+
         setText(result.text);
         setCleanText(parsed.cleanText);
         setScores(parsed.scores);
@@ -82,6 +117,7 @@ export function useAiRun(feature = 'ai') {
         return null;
       } finally {
         setRunning(false);
+        setRefining(false);
         abortRef.current = null;
       }
     },
@@ -89,7 +125,7 @@ export function useAiRun(feature = 'ai') {
   );
 
   return {
-    run, stop, reset, running,
+    run, stop, reset, running, refining, refined,
     text, thoughts, sources, queries, scores, cleanText, error, grounded,
   };
 }

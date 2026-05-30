@@ -22,8 +22,10 @@ import { obfuscate, deobfuscate } from './crypto.js';
 import {
   getSessionUser, onAuthChange, signInWithPassword, signUpWithPassword,
   signInWithMagicLink, signOut as sbSignOut, loadWorkspace, saveWorkspace,
+  sendPasswordReset, updatePassword as sbUpdatePassword,
 } from './supabase.js';
 import { evaluateRateLimit, prune, RATE_DEFAULTS } from './rateLimit.js';
+import { hashPasscode, verifyPasscode, evaluateLockout, registerFailure, resetLockout } from './auth.js';
 
 const AppContext = createContext(null);
 
@@ -67,7 +69,7 @@ const DEFAULT_PROFILE = {
 
 export function AppProvider({ children }) {
   // ---- settings ----
-  const [isDark, setIsDark] = useState(() => storage.get(STORAGE_KEYS.THEME, false));
+  const [isDark, setIsDark] = useState(() => storage.get(STORAGE_KEYS.THEME, true));
   const [apiKey, setApiKeyState] = useState(() => deobfuscate(storage.get(STORAGE_KEYS.API_KEY, '')));
   const [model, setModelState] = useState(() => storage.get(STORAGE_KEYS.MODEL, DEFAULT_MODEL));
   const [webGrounding, setWebGroundingState] = useState(() => storage.get(STORAGE_KEYS.WEB_GROUNDING, false));
@@ -95,8 +97,13 @@ export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(SUPABASE_ENABLED);
   const [cloudStatus, setCloudStatus] = useState('idle'); // idle | syncing | synced | error
+  const [recovery, setRecovery] = useState(false); // PASSWORD_RECOVERY in progress
   const syncReadyRef = useRef(false);
   const saveTimerRef = useRef(null);
+
+  // ---- local passcode lock (device-level, PBKDF2 via auth.js) ----
+  const [lockEnabled, setLockEnabled] = useState(() => !!storage.get(STORAGE_KEYS.APP_LOCK, null));
+  const [unlocked, setUnlocked] = useState(() => !storage.get(STORAGE_KEYS.APP_LOCK, null));
 
   // ---- effects: theme + persistence ----
   useEffect(() => {
@@ -292,7 +299,10 @@ export function AppProvider({ children }) {
         if (active) setAuthLoading(false);
       }
     })();
-    const unsub = onAuthChange((u) => setUser(u));
+    const unsub = onAuthChange((u, event) => {
+      setUser(u);
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+    });
     return () => {
       active = false;
       unsub();
@@ -366,6 +376,53 @@ export function AppProvider({ children }) {
     setUser(null);
     audit('LOGOUT', '');
   }, [audit]);
+  const requestPasswordReset = useCallback((email) => sendPasswordReset(email), []);
+  const changePassword = useCallback(async (newPassword) => {
+    await sbUpdatePassword(newPassword);
+    setRecovery(false);
+  }, []);
+
+  // ---- local passcode lock actions ----
+  const unlockWithPasscode = useCallback(async (pin) => {
+    const lockState = storage.get(STORAGE_KEYS.APP_LOCK_ATTEMPTS, { attempts: 0, lockedUntil: 0 });
+    const status = evaluateLockout(lockState);
+    if (status.locked) {
+      return { ok: false, locked: true, remainingMs: status.remainingMs };
+    }
+    const record = storage.get(STORAGE_KEYS.APP_LOCK, null);
+    const ok = await verifyPasscode(pin, record);
+    if (ok) {
+      storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, resetLockout());
+      setUnlocked(true);
+      audit('LOGIN', 'passcode');
+      return { ok: true };
+    }
+    const next = registerFailure(lockState);
+    storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, next);
+    audit('LOGIN_FAILED', `attempt ${next.attempts}`);
+    return { ok: false, locked: !!next.lockedUntil, warning: next.warning };
+  }, [audit]);
+
+  const setPasscode = useCallback(async (pin) => {
+    const record = await hashPasscode(pin);
+    storage.set(STORAGE_KEYS.APP_LOCK, record);
+    storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, resetLockout());
+    setLockEnabled(true);
+    setUnlocked(true);
+    audit('SETTINGS_UPDATE', 'passcode-set');
+  }, [audit]);
+
+  const clearPasscode = useCallback(() => {
+    storage.remove(STORAGE_KEYS.APP_LOCK);
+    storage.remove(STORAGE_KEYS.APP_LOCK_ATTEMPTS);
+    setLockEnabled(false);
+    setUnlocked(true);
+    audit('SETTINGS_UPDATE', 'passcode-cleared');
+  }, [audit]);
+
+  const lockNow = useCallback(() => {
+    if (lockEnabled) setUnlocked(false);
+  }, [lockEnabled]);
 
   // ---- AI rate-limit guard (returns true if the call may proceed) ----
   const guardAi = useCallback(() => {
@@ -398,7 +455,12 @@ export function AppProvider({ children }) {
       authLoading,
       cloudStatus,
       isAuthed: !SUPABASE_ENABLED || !!user,
+      recovery,
       signIn, signUp, magicLink, signOut: doSignOut,
+      requestPasswordReset, changePassword,
+      // local passcode lock
+      lockEnabled, unlocked, isLocked: lockEnabled && !unlocked,
+      unlockWithPasscode, setPasscode, clearPasscode, lockNow,
       // AI rate-limit guard
       guardAi,
       // nav
@@ -425,7 +487,9 @@ export function AppProvider({ children }) {
       timeEntries, addTimeEntry, deleteTimeEntry, analyses, saveAnalysis, deleteAnalysis, aiHistory, pushHistory,
       aiUsage, recordUsage, templates, addTemplate, deleteTemplate, auditLog, audit, toasts, showToast, removeToast,
       exportBackup, importBackup,
-      user, authLoading, cloudStatus, signIn, signUp, magicLink, doSignOut, guardAi,
+      user, authLoading, cloudStatus, recovery, signIn, signUp, magicLink, doSignOut,
+      requestPasswordReset, changePassword,
+      lockEnabled, unlocked, unlockWithPasscode, setPasscode, clearPasscode, lockNow, guardAi,
     ]
   );
 

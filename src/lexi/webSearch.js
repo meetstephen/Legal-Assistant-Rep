@@ -96,6 +96,53 @@ function parseVerdicts(text, cases) {
 }
 
 // ------------------------------------------------------------
+// Quick Precedent Finder — fast, always-live search returning a compact,
+// structured list of on-point Nigerian authorities (name · citation · court ·
+// relevance · source link). Distinct from the deeper Research memo.
+// ------------------------------------------------------------
+export async function findPrecedents({ apiKey, model, query, signal }) {
+  const system =
+    'You are a Nigerian precedent finder searching the live web. Return up to 6 ' +
+    'of the most on-point, REAL Nigerian authorities for the issue. Output ONLY ' +
+    'one line per case in EXACTLY this pipe format and nothing else:\n' +
+    '<case name> | <citation or "-"> | <court> | <one-line why it is on point> | <source URL or "-">\n' +
+    'Never invent a case, citation or URL. If you cannot confirm a citation use ' +
+    '"-". If you find nothing solid, return a single line: NONE | - | - | no ' +
+    'reliable authority found | -';
+  const r = await generate({
+    apiKey,
+    model,
+    mode: 'standard',
+    webGrounding: true,
+    thinking: false,
+    signal,
+    systemInstruction: system,
+    userText: `Find the leading Nigerian precedents on:\n\n${query}`,
+  });
+  return { items: parsePrecedents(r.text), sources: r.sources, raw: r.text, usage: r.usage, grounded: r.grounded };
+}
+
+// Exported for testing. Parses the pipe-delimited precedent list.
+export function parsePrecedents(text = '') {
+  const lines = text.split('\n').filter((l) => l.includes('|'));
+  const out = [];
+  lines.forEach((line) => {
+    const cells = line.replace(/^\s*\d+[.)]\s*/, '').split('|').map((s) => s.trim());
+    if (cells.length < 2) return;
+    const [name, citation, court, relevance, url] = cells;
+    if (!name || /^NONE$/i.test(name)) return;
+    out.push({
+      name,
+      citation: citation && citation !== '-' ? citation : '',
+      court: court && court !== '-' ? court : '',
+      relevance: relevance && relevance !== '-' ? relevance : '',
+      url: url && /^https?:\/\//.test(url) ? url : '',
+    });
+  });
+  return out;
+}
+
+// ------------------------------------------------------------
 // Practice Updates — always-live Nigerian legal news / developments.
 // ------------------------------------------------------------
 export async function fetchPracticeUpdates({ apiKey, model, topic, signal }) {

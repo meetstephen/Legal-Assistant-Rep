@@ -5,7 +5,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   User, KeyRound, Cpu, Bell, Database, Save, Download, Upload, Trash2,
-  Eye, EyeOff, BarChart3, Mail, Sun, Moon, LogOut, Cloud, CloudOff,
+  Eye, EyeOff, BarChart3, Mail, Sun, Moon, LogOut, Cloud, CloudOff, Lock, ShieldCheck,
 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { MODELS } from '../ai.js';
@@ -17,6 +17,7 @@ import { formatDateTime, formatDate, downloadBlob, cn } from '../utils.js';
 const TABS = [
   { id: 'firm', label: 'Profile & Firm', icon: User },
   { id: 'settings', label: 'AI Settings', icon: KeyRound },
+  { id: 'security', label: 'Security', icon: Lock },
   { id: 'usage', label: 'AI Usage', icon: BarChart3 },
   { id: 'notify', label: 'Notifications', icon: Bell },
   { id: 'data', label: 'Data', icon: Database },
@@ -70,6 +71,7 @@ export function Profile() {
       </div>
       {tab === 'firm' && <FirmTab />}
       {tab === 'settings' && <SettingsTab />}
+      {tab === 'security' && <SecurityTab />}
       {tab === 'usage' && <UsageTab />}
       {tab === 'notify' && <NotifyTab />}
       {tab === 'data' && <DataTab />}
@@ -132,6 +134,69 @@ function SettingsTab() {
           <span className="text-sm text-slate-600 dark:text-slate-300">Theme</span>
           <Button variant="secondary" size="sm" onClick={toggleTheme} leftIcon={isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}>{isDark ? 'Light' : 'Dark'}</Button>
         </div>
+      </Card>
+    </div>
+  );
+}
+
+function SecurityTab() {
+  const { supabaseEnabled, lockEnabled, setPasscode, clearPasscode, lockNow, changePassword, showToast } = useApp();
+  const [pin, setPin] = useState('');
+  const [pin2, setPin2] = useState('');
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const savePin = async () => {
+    if (pin.length < 4) { showToast('warning', 'Use at least 4 characters.'); return; }
+    if (pin !== pin2) { showToast('warning', 'Passcodes do not match.'); return; }
+    setBusy(true);
+    try { await setPasscode(pin); showToast('success', 'Passcode set. The workspace will lock on next load.'); setPin(''); setPin2(''); }
+    finally { setBusy(false); }
+  };
+
+  const savePw = async () => {
+    if (pw.length < 8) { showToast('warning', 'Use at least 8 characters.'); return; }
+    if (pw !== pw2) { showToast('warning', 'Passwords do not match.'); return; }
+    setBusy(true);
+    try { await changePassword(pw); showToast('success', 'Password changed.'); setPw(''); setPw2(''); }
+    catch (e) { showToast('error', e.message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      {supabaseEnabled && (
+        <Card variant="glass" className="space-y-3">
+          <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2"><KeyRound className="w-5 h-5 text-emerald-500" /> Change account password</h3>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input label="New password" type="password" value={pw} onChange={(e) => setPw(e.target.value)} hint="At least 8 characters." />
+            <Input label="Confirm new password" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} />
+          </div>
+          <Button onClick={savePw} isLoading={busy} leftIcon={<Save className="w-4 h-4" />}>Update password</Button>
+        </Card>
+      )}
+
+      <Card variant="glass" className="space-y-3">
+        <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2"><Lock className="w-5 h-5 text-violet-500" /> Device passcode lock</h3>
+        <p className="text-sm text-slate-500">
+          Adds a login wall on this device. The passcode is hashed with <strong>PBKDF2-HMAC-SHA256 (260,000 iterations)</strong>, verified in constant time, with a 5-attempt / 5-minute lockout. It is stored only on this device and never synced.
+        </p>
+        {lockEnabled ? (
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="success">Passcode lock is ON</Badge>
+            <Button size="sm" variant="secondary" onClick={lockNow} leftIcon={<Lock className="w-4 h-4" />}>Lock now</Button>
+            <Button size="sm" variant="ghost" className="text-red-500" onClick={() => { if (window.confirm('Remove the device passcode?')) { clearPasscode(); showToast('success', 'Passcode removed.'); } }} leftIcon={<Trash2 className="w-4 h-4" />}>Remove passcode</Button>
+          </div>
+        ) : (
+          <>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Input label="New passcode" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} hint="At least 4 characters." />
+              <Input label="Confirm passcode" type="password" inputMode="numeric" value={pin2} onChange={(e) => setPin2(e.target.value)} />
+            </div>
+            <Button onClick={savePin} isLoading={busy} leftIcon={<ShieldCheck className="w-4 h-4" />}>Enable passcode lock</Button>
+          </>
+        )}
       </Card>
     </div>
   );

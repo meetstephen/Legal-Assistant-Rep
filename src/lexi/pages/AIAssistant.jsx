@@ -6,7 +6,7 @@ import React, { useState, useRef } from 'react';
 import {
   Brain, Sparkles, Square, Globe, Upload, FileText, X, ShieldAlert,
   MessageSquare, Search, BookOpen, ChevronRight, Target, Scale, ClipboardCheck,
-  GitCompare, Lightbulb, HelpCircle, Gauge,
+  GitCompare, Lightbulb, HelpCircle, Gauge, Columns2,
 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { useAiRun } from '../useAiRun.js';
@@ -49,6 +49,8 @@ export function AIAssistant() {
 
   // Contract version diff
   const [showDiff, setShowDiff] = useState(false);
+  // Analysis comparison
+  const [showCompare, setShowCompare] = useState(false);
 
   const task = TASK_TYPES.find((t) => t.id === taskId) || TASK_TYPES[0];
 
@@ -77,6 +79,7 @@ export function AIAssistant() {
       mode,
       webGrounding: groundOverride,
       thinking,
+      qualityGate: true,
     });
   };
 
@@ -240,6 +243,9 @@ export function AIAssistant() {
           <Button variant="ghost" onClick={() => setShowDiff((s) => !s)} leftIcon={<GitCompare className="w-4 h-4" />}>
             Contract version diff
           </Button>
+          <Button variant="ghost" onClick={() => setShowCompare((s) => !s)} leftIcon={<Columns2 className="w-4 h-4" />}>
+            Compare analyses
+          </Button>
         </div>
         {groundOverride && (
           <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
@@ -249,6 +255,7 @@ export function AIAssistant() {
       </Card>
 
       {showDiff && <ContractDiff mode={mode} grounding={groundOverride} />}
+      {showCompare && <AnalysisComparison mode={mode} grounding={groundOverride} />}
 
       <AiResult ai={ai} title="LexiAssist Response" exportTitle={`LexiAssist ${task.label}`} />
 
@@ -351,6 +358,62 @@ function ContractDiff({ mode, grounding }) {
         {ops.length > 0 && <span className="text-xs text-slate-400">{changes} changed line(s)</span>}
       </div>
       <AiResult ai={ai} title="Diff explanation" exportTitle="Contract Diff Explanation" allowSave={false} showAudit={false} />
+    </Card>
+  );
+}
+
+
+// ---- Analysis comparison ----------------------------------------------------
+function AnalysisComparison({ mode, grounding }) {
+  const { analyses } = useApp();
+  const ai = useAiRun('analysis-compare');
+  const [aId, setAId] = useState('');
+  const [bId, setBId] = useState('');
+
+  const a = analyses.find((x) => x.id === aId);
+  const b = analyses.find((x) => x.id === bId);
+
+  const options = [{ value: '', label: 'Select a saved analysis…' }, ...analyses.map((x) => ({ value: x.id, label: x.title }))];
+
+  const compare = () => {
+    if (!a || !b) return;
+    ai.run({
+      systemInstruction:
+        'You are a senior Nigerian lawyer comparing two pieces of legal analysis on (likely) the same matter. Produce: 1) Points of agreement, 2) Points of conflict/divergence, 3) Which analysis is stronger and why (authorities, reasoning, completeness), 4) A merged best-of recommendation, 5) Any risks either missed. Be specific and cite the better-supported positions.',
+      userText: `ANALYSIS A — "${a.title}":\n${a.content}\n\n====\n\nANALYSIS B — "${b.title}":\n${b.content}`,
+      mode,
+      webGrounding: grounding,
+    });
+  };
+
+  return (
+    <Card variant="glass" className="space-y-4">
+      <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+        <Columns2 className="w-5 h-5 text-emerald-500" /> Analysis comparison
+      </h3>
+      {analyses.length < 2 ? (
+        <p className="text-sm text-slate-500">
+          Save at least two analyses first (use “Save this result” on any answer), then compare them here.
+        </p>
+      ) : (
+        <>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Select label="Analysis A" value={aId} onChange={(e) => setAId(e.target.value)} options={options} />
+              {a && <pre className="whitespace-pre-wrap text-xs bg-slate-50 dark:bg-slate-800 p-3 rounded-lg max-h-56 overflow-y-auto thin-scrollbar">{a.content.slice(0, 1500)}</pre>}
+            </div>
+            <div className="space-y-2">
+              <Select label="Analysis B" value={bId} onChange={(e) => setBId(e.target.value)} options={options} />
+              {b && <pre className="whitespace-pre-wrap text-xs bg-slate-50 dark:bg-slate-800 p-3 rounded-lg max-h-56 overflow-y-auto thin-scrollbar">{b.content.slice(0, 1500)}</pre>}
+            </div>
+          </div>
+          <Button onClick={compare} disabled={!a || !b || (a && b && a.id === b.id) || ai.running} isLoading={ai.running} leftIcon={<Sparkles className="w-4 h-4" />}>
+            AI compare
+          </Button>
+          {a && b && a.id === b.id && <p className="text-xs text-amber-500">Pick two different analyses.</p>}
+        </>
+      )}
+      <AiResult ai={ai} title="Comparison" exportTitle="Analysis Comparison" allowSave={false} showAudit={false} />
     </Card>
   );
 }

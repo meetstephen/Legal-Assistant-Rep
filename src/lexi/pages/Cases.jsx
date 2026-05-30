@@ -5,7 +5,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   FolderOpen, Plus, Trash2, Calendar, Building2, Filter, Download,
-  CalendarClock, FileText, Package,
+  CalendarClock, FileText, Package, MessageCircle,
 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { Card, Button, Input, Textarea, Select, Badge, Modal, EmptyState, PageHeader } from '../components/ui.jsx';
@@ -16,7 +16,7 @@ import { exportPdf, exportTxt } from '../exports.js';
 const STATUSES = ['active', 'pending', 'completed', 'archived'];
 
 export function Cases() {
-  const { cases, addCase, updateCase, deleteCase, clients, getClientName, analyses, showToast, profile } = useApp();
+  const { cases, addCase, updateCase, deleteCase, clients, getClientName, analyses, showToast, profile, navigate } = useApp();
   const [tab, setTab] = useState('manager');
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -138,6 +138,7 @@ export function Cases() {
                         </div>
                         {c.notes && <p className="text-sm text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3">{c.notes}</p>}
                         <div className="flex flex-wrap gap-2 pt-1">
+                          <Button size="sm" variant="ghost" onClick={() => navigate('chat', { caseId: c.id })} leftIcon={<MessageCircle className="w-4 h-4" />}>Ask AI</Button>
                           <Button size="sm" variant="ghost" onClick={() => addHearing(c)} leftIcon={<CalendarClock className="w-4 h-4" />}>Add hearing</Button>
                           <Button size="sm" variant="ghost" onClick={() => setExpanded(open ? null : c.id)} leftIcon={<FileText className="w-4 h-4" />}>
                             Analyses ({caseAnalyses.length})
