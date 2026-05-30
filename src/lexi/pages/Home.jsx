@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { Card, Button, Badge, PageHeader } from '../components/ui.jsx';
+import { QuickPrecedentFinder } from '../components/QuickPrecedentFinder.jsx';
 import { BRAND_LABEL } from '../runtime.js';
 import { formatDate, formatRelativeDate, daysUntil, formatCurrency, cn } from '../utils.js';
 
@@ -126,6 +127,8 @@ export function Home() {
           </div>
         </Card>
       </div>
+
+      <QuickPrecedentFinder compact />
 
       <Card variant="flat" className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
         <Globe className={cn('w-4 h-4', webGrounding ? 'text-emerald-500' : 'text-slate-400')} />

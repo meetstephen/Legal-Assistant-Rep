@@ -45,6 +45,13 @@ export function AiResult({ ai, title = 'LexiAssist Response', exportTitle, allow
         </Card>
       )}
 
+      {ai.refining && (
+        <Card variant="flat" className="flex items-center gap-3 text-sm text-violet-600 dark:text-violet-300">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Quality gate: checking the draft and tightening it if needed…
+        </Card>
+      )}
+
       <ReasoningPanel thoughts={ai.thoughts} />
 
       {(body || ai.running) && (
@@ -56,6 +63,7 @@ export function AiResult({ ai, title = 'LexiAssist Response', exportTitle, allow
               </div>
               <h3 className="font-semibold text-slate-900 dark:text-white">{title}</h3>
               {ai.grounded && <Badge variant="success"><Globe className="w-3 h-3" /> Grounded</Badge>}
+              {ai.refined && <Badge variant="violet">Quality-checked</Badge>}
               {ai.running && <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />}
             </div>
             {body && !ai.running && (

@@ -144,7 +144,34 @@ npm run ci                  # eslint + vitest + vite build
 
 ---
 
-## Part F — Deploying on Netlify instead
+## Part F — Mobile app (PWA today, true native via Capacitor)
+
+You have three options, from easiest to most native:
+
+**1. PWA (works right now).** The app already ships a web manifest + service worker, so on a phone you can use the browser's **"Add to Home Screen / Install"** — it installs an icon, runs full-screen with no browser chrome, and works offline for non-AI features. No build, no app store.
+
+**2. Capacitor → real App Store / Play Store apps (recommended for "true native").** Capacitor wraps *this same React build* in a native iOS/Android shell — no rewrite. A `capacitor.config.json` is already included. Steps:
+
+```bash
+npm i -D @capacitor/cli @capacitor/core
+npm i @capacitor/ios @capacitor/android
+npm run build
+npx cap add ios          # and/or: npx cap add android
+npx cap sync
+npx cap open ios         # opens Xcode  (or: npx cap open android → Android Studio)
+```
+
+Two ways to wire the backend inside the native shell:
+- **Simplest (load your hosted site):** add `"server": { "url": "https://your-app.vercel.app" }` to `capacitor.config.json`. The native app then loads your deployment, so the secure proxy, Supabase login and grounding all work exactly as on the web.
+- **Bundled offline build:** ship the `dist/` assets in the app and use **bring-your-own-key** mode (direct Gemini calls), since a bundled build has no `/api` server. (Supabase still works — it's a remote host.)
+
+Then build/sign in Xcode / Android Studio and submit to the stores as usual.
+
+**3. React Native / Expo (fully native UI).** A from-scratch native rewrite that reuses the `lexi/` logic (ai, citations, prompts, etc.) but rebuilds the screens with native components. Highest effort; only worth it if you need platform-native UI rather than the (already excellent) web UI in a shell. For most legal-practice apps, **option 2 (Capacitor) is the sweet spot**.
+
+---
+
+## Part G — Deploying on Netlify instead
 
 Netlify hosts the static SPA equally well (`netlify.toml` is included). The one difference: the proxy. Netlify uses **Netlify Functions** rather than Vercel Edge Functions, so port `api/gemini.js` to `netlify/functions/gemini.js` (same logic; export a `handler`) and set `GEMINI_API_KEY` + `VITE_USE_PROXY=true` in **Site settings → Environment variables**. The Supabase vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) work identically on Netlify. For a pure BYOK static deploy, no function is needed and Netlify works with zero changes.
 

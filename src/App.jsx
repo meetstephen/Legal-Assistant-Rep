@@ -6,6 +6,7 @@ import React, { useEffect } from 'react';
 import { AppProvider, useApp } from './lexi/AppContext.jsx';
 import { Layout } from './lexi/components/Layout.jsx';
 import { AuthGate } from './lexi/components/AuthGate.jsx';
+import { CommandPalette } from './lexi/components/CommandPalette.jsx';
 import { ToastContainer } from './lexi/components/Toast.jsx';
 import { storage, STORAGE_KEYS } from './lexi/database.js';
 import { runMigrations } from './lexi/migrator.js';
@@ -85,6 +86,7 @@ export default function App() {
     <AppProvider>
       <AuthGate>
         <Router />
+        <CommandPalette />
       </AuthGate>
       <ToastContainer />
     </AppProvider>

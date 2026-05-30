@@ -28,6 +28,8 @@ export const STORAGE_KEYS = {
   PROFILE: 'firm-profile',
   ADMIN_CASES: 'admin-verified-cases',
   CHAT: 'chat-thread',
+  APP_LOCK: 'app-lock',
+  APP_LOCK_ATTEMPTS: 'app-lock-attempts',
 };
 
 export const storage = {

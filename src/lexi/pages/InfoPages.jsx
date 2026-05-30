@@ -3,8 +3,9 @@
 // ============================================================
 
 import React from 'react';
-import { HelpCircle, Lock, FileText } from 'lucide-react';
-import { Card, PageHeader } from '../components/ui.jsx';
+import { HelpCircle, Lock, FileText, MessageSquarePlus, Send } from 'lucide-react';
+import { useApp } from '../AppContext.jsx';
+import { Card, Button, PageHeader } from '../components/ui.jsx';
 import { BRAND_LABEL, DISCLAIMER } from '../runtime.js';
 
 function Section({ title, children }) {
@@ -16,10 +17,38 @@ function Section({ title, children }) {
   );
 }
 
+function BetaFeedback() {
+  const { profile } = useApp();
+  const to = profile.feedbackEmail || profile.email || '';
+  const subject = encodeURIComponent('LexiAssist 2.0 beta feedback');
+  const body = encodeURIComponent(
+    'What I was doing:\n\nWhat happened:\n\nWhat I expected:\n\nFeature/area (AI, Research, Cases, etc.):\n\nDevice/browser:\n\nAnything else:\n'
+  );
+  const href = to ? `mailto:${to}?subject=${subject}&body=${body}` : `mailto:?subject=${subject}&body=${body}`;
+  return (
+    <Card variant="glass" className="space-y-3 border-amber-200 dark:border-amber-800">
+      <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+        <MessageSquarePlus className="w-5 h-5 text-amber-500" /> You&apos;re testing a private beta
+      </h3>
+      <p className="text-sm text-slate-600 dark:text-slate-300">
+        Thank you for evaluating {BRAND_LABEL}. Please try the AI Assistant, Research, Authority Verify, and your day-to-day workflow
+        (cases, tasks, fees), and tell us what works and what doesn&apos;t. Always independently verify any authority before relying on it.
+      </p>
+      <a href={href}>
+        <Button leftIcon={<Send className="w-4 h-4" />}>Send feedback</Button>
+      </a>
+      <p className="text-xs text-slate-400">
+        {to ? `Feedback goes to ${to} (set this in Profile → Firm).` : 'Tip: set a feedback email in Profile → Firm, or just send to your own address.'}
+      </p>
+    </Card>
+  );
+}
+
 export function Help() {
   return (
     <div className="space-y-6">
       <PageHeader icon={HelpCircle} title="Help" subtitle={`Getting the most out of ${BRAND_LABEL}`} gradient="from-sky-400 to-blue-500" />
+      <BetaFeedback />
       <Card variant="glass" className="space-y-5">
         <Section title="1. Add your Gemini API key">
           <p>Go to <strong>Profile → AI Settings</strong> and paste a key from Google AI Studio. For live web grounding and real source links, enable Google Search grounding on the key. The key is stored only in your browser.</p>

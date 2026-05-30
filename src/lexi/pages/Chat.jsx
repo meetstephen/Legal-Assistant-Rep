@@ -32,7 +32,7 @@ const GREETING = {
 
 export function Chat() {
   const {
-    apiKey, aiReady, model, webGrounding, profile, cases, navigate,
+    apiKey, aiReady, model, webGrounding, profile, cases, navigate, pageParams,
     recordUsage, audit, showToast, saveAnalysis, pushHistory, guardAi,
   } = useApp();
 
@@ -58,6 +58,11 @@ export function Chat() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, running]);
+
+  // Preselect a case when arriving via "Ask AI about this case".
+  useEffect(() => {
+    if (pageParams && pageParams.caseId) setCaseId(pageParams.caseId);
+  }, [pageParams]);
 
   const buildSystem = () => {
     const parts = [

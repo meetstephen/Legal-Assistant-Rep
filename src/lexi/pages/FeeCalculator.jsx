@@ -8,6 +8,7 @@ import { useApp } from '../AppContext.jsx';
 import { Card, Button, Input, Select, Textarea, EmptyState, PageHeader } from '../components/ui.jsx';
 import { computeProfessionalFee, conveyancingFee } from '../helpers.js';
 import { formatCurrency, formatDate, todayISO, cn } from '../utils.js';
+import { exportPdf, exportTxt } from '../exports.js';
 
 export function FeeCalculator() {
   const { profile, clients, cases, timeEntries, addTimeEntry, deleteTimeEntry, getClientName, showToast } = useApp();
@@ -24,8 +25,43 @@ export function FeeCalculator() {
 
   // time entry
   const [form, setForm] = useState({ clientId: '', caseId: '', description: '', hours: '', rate: String(profile.hourlyRate || 50000), date: todayISO() });
+  const [invClient, setInvClient] = useState('');
   const totalBillable = useMemo(() => timeEntries.reduce((s, e) => s + e.amount, 0), [timeEntries]);
   const totalHours = useMemo(() => timeEntries.reduce((s, e) => s + Number(e.hours), 0), [timeEntries]);
+
+  const generateInvoice = (kind) => {
+    if (!invClient) { showToast('warning', 'Select a client to invoice.'); return; }
+    const entries = timeEntries.filter((e) => e.clientId === invClient);
+    if (!entries.length) { showToast('warning', 'No time entries for that client.'); return; }
+    const client = clients.find((c) => c.id === invClient);
+    const subtotal = entries.reduce((s, e) => s + e.amount, 0);
+    const vat = (subtotal * (Number(profile.vatRate) || 0)) / 100;
+    const total = subtotal + vat;
+    const invNo = `INV-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+    const lines = [];
+    lines.push(`INVOICE  ${invNo}`);
+    lines.push(`Date: ${formatDate(todayISO())}`);
+    lines.push(`Bill to: ${client?.name || 'Client'}${client?.address ? `, ${client.address}` : ''}`);
+    lines.push('');
+    lines.push('Date         Description                                   Hours      Amount');
+    lines.push('-'.repeat(78));
+    entries.forEach((e) => {
+      const d = formatDate(e.date).padEnd(12).slice(0, 12);
+      const desc = (e.description || '').slice(0, 42).padEnd(44);
+      const hrs = String(e.hours).padStart(6);
+      const amt = formatCurrency(e.amount, cur).padStart(12);
+      lines.push(`${d} ${desc}${hrs}   ${amt}`);
+    });
+    lines.push('-'.repeat(78));
+    lines.push(`${'Subtotal'.padStart(60)} ${formatCurrency(subtotal, cur).padStart(15)}`);
+    lines.push(`${`VAT (${profile.vatRate || 0}%)`.padStart(60)} ${formatCurrency(vat, cur).padStart(15)}`);
+    lines.push(`${'TOTAL DUE'.padStart(60)} ${formatCurrency(total, cur).padStart(15)}`);
+    if (profile.bankDetails) { lines.push(''); lines.push(`Payment to: ${profile.bankDetails}`); }
+    const content = lines.join('\n');
+    const opts = { profile, title: `Invoice ${invNo} — ${client?.name || 'Client'}`, filename: `Invoice_${invNo}` };
+    if (kind === 'PDF') exportPdf(content, opts); else exportTxt(content, opts);
+    showToast('success', `Invoice generated (${kind}).`);
+  };
 
   const logTime = () => {
     if (!form.clientId || !form.description.trim() || !(Number(form.hours) > 0)) {
@@ -108,6 +144,19 @@ export function FeeCalculator() {
             </div>
             <Textarea label="Description" rows={2} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <Button onClick={logTime} leftIcon={<Plus className="w-4 h-4" />}>Log time</Button>
+          </Card>
+
+          <Card variant="glass" className="space-y-3">
+            <h3 className="font-semibold text-slate-900 dark:text-white">Generate invoice</h3>
+            <p className="text-sm text-slate-500">Build a branded invoice from a client&apos;s logged time (firm header, VAT and bank details applied automatically).</p>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <Select label="Client" value={invClient} onChange={(e) => setInvClient(e.target.value)}
+                options={[{ value: '', label: 'Select client' }, ...clients.map((c) => ({ value: c.id, label: c.name }))]} className="sm:max-w-xs" />
+              <div className="flex gap-2">
+                <Button onClick={() => generateInvoice('PDF')} disabled={!invClient} leftIcon={<Receipt className="w-4 h-4" />}>Invoice (PDF)</Button>
+                <Button variant="secondary" onClick={() => generateInvoice('TXT')} disabled={!invClient}>TXT</Button>
+              </div>
+            </div>
           </Card>
 
           <Card variant="glass">

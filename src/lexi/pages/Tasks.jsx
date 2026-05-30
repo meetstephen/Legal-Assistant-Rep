@@ -3,11 +3,13 @@
 // ============================================================
 
 import React, { useState, useMemo } from 'react';
-import { ListChecks, Plus, Trash2, AlertCircle, CheckCircle2, Clock, Circle } from 'lucide-react';
+import { ListChecks, Plus, Trash2, AlertCircle, CheckCircle2, Clock, Circle, CalendarDays } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { Card, Button, Input, Textarea, Select, Badge, Modal, EmptyState, PageHeader } from '../components/ui.jsx';
 import { STATUS_BADGE, PRIORITY_BADGE } from '../themes.js';
 import { formatDate, formatRelativeDate, daysUntil, cn } from '../utils.js';
+import { buildICS } from '../ics.js';
+import { downloadBlob } from '../utils.js';
 
 const STATUSES = ['todo', 'in-progress', 'done'];
 const PRIORITIES = ['high', 'medium', 'low'];
@@ -49,6 +51,13 @@ export function Tasks() {
   return (
     <div className="space-y-6">
       <PageHeader icon={ListChecks} title="Task Manager" subtitle="Deadlines, priorities, and matter-linked tasks" gradient="from-blue-400 to-cyan-500">
+        <Button variant="secondary" onClick={() => {
+          const due = tasks.filter((t) => t.due && t.status !== 'done');
+          if (!due.length) { showToast('info', 'No tasks with due dates to export.'); return; }
+          const events = due.map((t) => ({ uid: t.id, title: `Task: ${t.title}`, date: t.due, description: t.notes || '' }));
+          downloadBlob(buildICS(events, 'LexiAssist Deadlines'), 'lexiassist_deadlines.ics', 'text/calendar;charset=utf-8');
+          showToast('success', 'Deadlines exported (.ics).');
+        }} leftIcon={<CalendarDays className="w-4 h-4" />}>Export deadlines</Button>
         <Button onClick={() => setShowModal(true)} leftIcon={<Plus className="w-4 h-4" />}>Add task</Button>
       </PageHeader>
 
