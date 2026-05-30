@@ -100,6 +100,99 @@ export const STATE_RULES = [
   'Enugu', 'Kaduna', 'Delta', 'Anambra', 'Ogun',
 ];
 
+// ---- All 36 states + FCT, by geopolitical zone (South-East emphasised) ------
+export const NIGERIAN_STATES = [
+  // South East
+  { name: 'Abia', zone: 'South East', capital: 'Umuahia' },
+  { name: 'Anambra', zone: 'South East', capital: 'Awka' },
+  { name: 'Ebonyi', zone: 'South East', capital: 'Abakaliki' },
+  { name: 'Enugu', zone: 'South East', capital: 'Enugu' },
+  { name: 'Imo', zone: 'South East', capital: 'Owerri' },
+  // South South
+  { name: 'Akwa Ibom', zone: 'South South', capital: 'Uyo' },
+  { name: 'Bayelsa', zone: 'South South', capital: 'Yenagoa' },
+  { name: 'Cross River', zone: 'South South', capital: 'Calabar' },
+  { name: 'Delta', zone: 'South South', capital: 'Asaba' },
+  { name: 'Edo', zone: 'South South', capital: 'Benin City' },
+  { name: 'Rivers', zone: 'South South', capital: 'Port Harcourt' },
+  // South West
+  { name: 'Ekiti', zone: 'South West', capital: 'Ado-Ekiti' },
+  { name: 'Lagos', zone: 'South West', capital: 'Ikeja' },
+  { name: 'Ogun', zone: 'South West', capital: 'Abeokuta' },
+  { name: 'Ondo', zone: 'South West', capital: 'Akure' },
+  { name: 'Osun', zone: 'South West', capital: 'Oshogbo' },
+  { name: 'Oyo', zone: 'South West', capital: 'Ibadan' },
+  // North Central
+  { name: 'Benue', zone: 'North Central', capital: 'Makurdi' },
+  { name: 'Kogi', zone: 'North Central', capital: 'Lokoja' },
+  { name: 'Kwara', zone: 'North Central', capital: 'Ilorin' },
+  { name: 'Nasarawa', zone: 'North Central', capital: 'Lafia' },
+  { name: 'Niger', zone: 'North Central', capital: 'Minna' },
+  { name: 'Plateau', zone: 'North Central', capital: 'Jos' },
+  { name: 'FCT (Abuja)', zone: 'North Central', capital: 'Abuja' },
+  // North East
+  { name: 'Adamawa', zone: 'North East', capital: 'Yola' },
+  { name: 'Bauchi', zone: 'North East', capital: 'Bauchi' },
+  { name: 'Borno', zone: 'North East', capital: 'Maiduguri' },
+  { name: 'Gombe', zone: 'North East', capital: 'Gombe' },
+  { name: 'Taraba', zone: 'North East', capital: 'Jalingo' },
+  { name: 'Yobe', zone: 'North East', capital: 'Damaturu' },
+  // North West
+  { name: 'Jigawa', zone: 'North West', capital: 'Dutse' },
+  { name: 'Kaduna', zone: 'North West', capital: 'Kaduna' },
+  { name: 'Kano', zone: 'North West', capital: 'Kano' },
+  { name: 'Katsina', zone: 'North West', capital: 'Katsina' },
+  { name: 'Kebbi', zone: 'North West', capital: 'Birnin Kebbi' },
+  { name: 'Sokoto', zone: 'North West', capital: 'Sokoto' },
+  { name: 'Zamfara', zone: 'North West', capital: 'Gusau' },
+];
+
+export const GEO_ZONES = ['South East', 'South South', 'South West', 'North Central', 'North East', 'North West'];
+
+// Jurisdiction options used across the app (Federal first, then every state).
+export const JURISDICTIONS = ['Nigeria (Federal)', ...NIGERIAN_STATES.map((s) => `${s.name} State`)];
+
+// Per-state High Court Civil Procedure Rules baseline. Years are given only
+// where well established; everything must be confirmed against the CURRENT
+// edition and any standalone Practice Directions (use the live fetch in Tools).
+export const STATE_COURT_RULES = {
+  Lagos: 'High Court of Lagos State (Civil Procedure) Rules 2019 — heavy frontloading; mandatory pre-action protocol and ADR (LMDC).',
+  'FCT (Abuja)': 'High Court of the FCT (Civil Procedure) Rules 2018 — frontloading; pre-action counselling certificate.',
+  Anambra: 'Anambra State High Court (Civil Procedure) Rules 2019 — frontloading; ADR screening.',
+  Enugu: 'Enugu State High Court (Civil Procedure) Rules — confirm current edition; frontloading and Multi-Door Courthouse referral.',
+  Imo: 'Imo State High Court (Civil Procedure) Rules — confirm current edition.',
+  Abia: 'Abia State High Court (Civil Procedure) Rules — confirm current edition.',
+  Ebonyi: 'Ebonyi State High Court (Civil Procedure) Rules — confirm current edition.',
+  Rivers: 'Rivers State High Court (Civil Procedure) Rules 2010 — confirm current edition.',
+  Oyo: 'Oyo State High Court (Civil Procedure) Rules 2010 — confirm current edition.',
+  Kano: 'Kano State High Court (Civil Procedure) Rules — confirm current edition.',
+  Kaduna: 'Kaduna State High Court (Civil Procedure) Rules 2007 — confirm current edition.',
+  Delta: 'Delta State High Court (Civil Procedure) Rules 2009 — confirm current edition.',
+  Ogun: 'Ogun State High Court (Civil Procedure) Rules — confirm current edition.',
+};
+
+// ---- Rules of Professional Conduct for Legal Practitioners 2007 -------------
+// Curated key rules (paraphrased). Confirm exact wording against the RPC 2007.
+export const RULES_OF_PROFESSIONAL_CONDUCT = [
+  { rule: 'Rule 1', title: 'General responsibility', summary: 'A lawyer shall uphold and observe the rule of law, promote and foster the cause of justice, maintain a high standard of professional conduct, and not engage in any conduct unbecoming of a legal practitioner.' },
+  { rule: 'Rule 3', title: 'Aiding unauthorised practice', summary: 'A lawyer shall not aid or abet a non-lawyer in the unauthorised practice of the law.' },
+  { rule: 'Rule 14', title: 'Dedication and devotion to the client', summary: 'A lawyer shall devote his attention, energy and expertise to the service of his client and, subject to any rule of law, act in a manner consistent with the best interest of the client.' },
+  { rule: 'Rule 15', title: 'Representing client within the law', summary: 'A lawyer shall represent the client within the bounds of the law; not file a suit, assert a position, or take steps merely to harass or injure another; and not knowingly advance a fact he knows to be false.' },
+  { rule: 'Rule 16', title: 'Representing client competently', summary: 'A lawyer shall not handle a matter he knows he is not competent to handle without associating a competent lawyer, nor neglect a legal matter entrusted to him.' },
+  { rule: 'Rule 17', title: 'Conflict of interest', summary: 'A lawyer shall not represent conflicting interests; where a conflict arises he must decline or withdraw unless, after full disclosure, all affected clients give informed consent.' },
+  { rule: 'Rule 19', title: 'Privilege and confidence of client', summary: 'A lawyer shall preserve and protect the confidences and secrets of the client even after the relationship ends, save in limited permitted circumstances.' },
+  { rule: 'Rule 20', title: 'Lawyer in salaried employment', summary: 'Restrictions on a lawyer in full-time salaried employment appearing as an advocate or engaging in private practice, save as permitted.' },
+  { rule: 'Rule 23', title: "Dealing with client's money/property", summary: "A lawyer shall keep clients' money in a separate (designated) client account, not commingle it with his own, account promptly, and pay over money due to the client." },
+  { rule: 'Rule 30', title: 'Lawyer as officer of the Court', summary: 'A lawyer is an officer of the court and shall not do any act or conduct himself in any manner that may obstruct, delay or adversely affect the administration of justice.' },
+  { rule: 'Rule 31', title: 'Candour and fairness', summary: 'In presenting a matter a lawyer shall not knowingly mislead the court, must disclose adverse controlling authority not disclosed by the opponent, and shall be fair to the court and the other side.' },
+  { rule: 'Rule 32', title: 'Dealing with witnesses', summary: 'A lawyer shall not suppress evidence he or his client has a legal obligation to reveal, nor pay or offer to pay a witness contingent on the content of testimony or the outcome.' },
+  { rule: 'Rule 33', title: 'Conduct in court / trial publicity', summary: 'A lawyer shall treat the court with respect, dignity and honour, and shall not make extra-judicial statements that may prejudice a fair trial.' },
+  { rule: 'Rule 45', title: 'Withdrawal from employment', summary: 'A lawyer may withdraw from a matter only on good cause and reasonable notice to the client, taking steps to avoid foreseeable prejudice to the client.' },
+  { rule: 'Rule 48', title: 'Notice on retirement/changes', summary: 'Requirements relating to a lawyer’s practice arrangements, partnerships and notices to clients.' },
+  { rule: 'Rule 52', title: 'Advertising and solicitation', summary: 'A lawyer may engage in dignified, non-misleading advertising within the limits permitted by the Rules; touting and improper solicitation are prohibited.' },
+  { rule: 'Rule 55', title: 'Enforcement / discipline', summary: 'A breach of the Rules is professional misconduct punishable by the Legal Practitioners Disciplinary Committee (LPDC) and is a ground for disciplinary proceedings.' },
+];
+
 // ---- Fee calculator scales (illustrative; confirm the applicable scale) -----
 export const FEE_DEFAULTS = {
   hourlyRate: 50000,

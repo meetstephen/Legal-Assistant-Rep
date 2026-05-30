@@ -6,13 +6,14 @@
 import React, { useState, useMemo } from 'react';
 import {
   Wrench, Clock, Calculator, Building, ScrollText, ShieldCheck, ClipboardList,
-  Search, Sparkles, AlertTriangle, CalendarPlus,
+  Search, Sparkles, AlertTriangle, CalendarPlus, Landmark, BookText, Globe,
 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { useAiRun } from '../useAiRun.js';
 import {
   LIMITATION_PERIODS, COURT_HIERARCHY, SPECIAL_COURT_NOTES, LEGAL_MAXIMS,
-  AML_THRESHOLDS, AML_RED_FLAGS, MATTER_TYPES, COURTS, STATE_RULES,
+  AML_THRESHOLDS, AML_RED_FLAGS, MATTER_TYPES, COURTS,
+  NIGERIAN_STATES, GEO_ZONES, STATE_COURT_RULES, RULES_OF_PROFESSIONAL_CONDUCT,
 } from '../legalData.js';
 import { computeDeadline } from '../helpers.js';
 import { Card, Button, Input, Select, Badge, PageHeader } from '../components/ui.jsx';
@@ -23,6 +24,8 @@ const TABS = [
   { id: 'limitation', label: 'Limitation Periods', icon: Clock },
   { id: 'deadline', label: 'Deadline Calculator', icon: Calculator },
   { id: 'hierarchy', label: 'Court Hierarchy', icon: Building },
+  { id: 'states', label: 'State Rules', icon: Landmark },
+  { id: 'rpc', label: 'Prof. Conduct (RPC)', icon: BookText },
   { id: 'maxims', label: 'Legal Maxims', icon: ScrollText },
   { id: 'aml', label: 'AML / SCUML', icon: ShieldCheck },
   { id: 'checklist', label: 'Court Process Checklist', icon: ClipboardList },
@@ -45,6 +48,8 @@ export function Tools() {
       {tab === 'limitation' && <Limitation />}
       {tab === 'deadline' && <Deadline />}
       {tab === 'hierarchy' && <Hierarchy />}
+      {tab === 'states' && <StateRules />}
+      {tab === 'rpc' && <Rpc />}
       {tab === 'maxims' && <Maxims />}
       {tab === 'aml' && <Aml />}
       {tab === 'checklist' && <Checklist />}
@@ -143,6 +148,68 @@ function Hierarchy() {
   );
 }
 
+function StateRules() {
+  const ai = useAiRun('state-rules');
+  const [state, setState] = useState('Anambra');
+  const known = STATE_COURT_RULES[state];
+  const meta = NIGERIAN_STATES.find((s) => s.name === state);
+
+  const fetchDirections = () => {
+    ai.run({
+      systemInstruction:
+        'You are a Nigerian procedural-law researcher searching the live web. Report the CURRENT High Court (Civil Procedure) Rules and any standalone Practice Directions in force for the named state, with year/edition and real source links. Note frontloading, ADR/Multi-Door referral, and pre-action requirements. If you cannot confirm the current edition, say so clearly.',
+      userText: `Current Civil Procedure Rules and Practice Directions of the High Court of ${state} State, Nigeria.`,
+      mode: 'standard',
+      webGrounding: true,
+    });
+  };
+
+  return (
+    <Card variant="glass" className="space-y-4">
+      <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2"><Landmark className="w-5 h-5 text-emerald-500" /> State rules & practice directions</h3>
+      <Select label="State" value={state} onChange={(e) => setState(e.target.value)}>
+        {GEO_ZONES.map((zone) => (
+          <optgroup key={zone} label={zone}>
+            {NIGERIAN_STATES.filter((s) => s.zone === zone).map((s) => (
+              <option key={s.name} value={s.name}>{s.name}{s.zone === 'South East' ? ' ★' : ''}</option>
+            ))}
+          </optgroup>
+        ))}
+      </Select>
+      <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-sm">
+        <p className="text-slate-700 dark:text-slate-200 font-medium">{state} State {meta ? `· ${meta.zone} · capital ${meta.capital}` : ''}</p>
+        <p className="text-slate-500 mt-1">{known || `${state} State High Court (Civil Procedure) Rules — confirm the current edition and any standalone Practice Directions (use the live fetch below).`}</p>
+      </div>
+      <Button onClick={fetchDirections} isLoading={ai.running} leftIcon={<Globe className="w-4 h-4" />}>Find current practice directions (live)</Button>
+      <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 mt-0.5" /> Rules and Practice Directions change — always confirm the edition in force at the relevant registry before filing.</p>
+      <AiResult ai={ai} title={`${state} State — rules & directions`} exportTitle={`${state} State Rules`} allowSave showAudit={false} />
+    </Card>
+  );
+}
+
+function Rpc() {
+  const [q, setQ] = useState('');
+  const filtered = RULES_OF_PROFESSIONAL_CONDUCT.filter(
+    (r) => `${r.rule} ${r.title} ${r.summary}`.toLowerCase().includes(q.toLowerCase())
+  );
+  return (
+    <Card variant="glass" className="space-y-4">
+      <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2"><BookText className="w-5 h-5 text-emerald-500" /> Rules of Professional Conduct (2007)</h3>
+      <Input leftIcon={<Search className="w-4 h-4" />} placeholder="Search the RPC (e.g. conflict, client money, candour)…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="space-y-2">
+        {filtered.map((r) => (
+          <div key={r.rule} className="rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+            <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{r.rule} — {r.title}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">{r.summary}</p>
+          </div>
+        ))}
+        {filtered.length === 0 && <p className="text-sm text-slate-400">No matching rule.</p>}
+      </div>
+      <p className="text-xs text-amber-600 dark:text-amber-400">Paraphrased for quick reference — confirm exact wording against the RPC for Legal Practitioners 2007 (and any amendments). Breaches are tried by the LPDC.</p>
+    </Card>
+  );
+}
+
 function Maxims() {
   const { showToast } = useApp();
   const [q, setQ] = useState('');
@@ -203,7 +270,8 @@ function Checklist() {
   const ai = useAiRun('court-checklist');
   const [matter, setMatter] = useState(MATTER_TYPES[0]);
   const [court, setCourt] = useState(COURTS[2]);
-  const [rules, setRules] = useState(STATE_RULES[0]);
+  const RULE_SETS = ['Federal (FHC/NIC Rules)', ...NIGERIAN_STATES.map((s) => `${s.name} State`)];
+  const [rules, setRules] = useState('Anambra State');
 
   const generate = () => {
     ai.run({
@@ -220,7 +288,7 @@ function Checklist() {
       <div className="grid sm:grid-cols-3 gap-3">
         <Select label="Matter type" value={matter} onChange={(e) => setMatter(e.target.value)} options={MATTER_TYPES.map((m) => ({ value: m, label: m }))} />
         <Select label="Court" value={court} onChange={(e) => setCourt(e.target.value)} options={COURTS.map((c) => ({ value: c, label: c }))} />
-        <Select label="Rules of court" value={rules} onChange={(e) => setRules(e.target.value)} options={STATE_RULES.map((s) => ({ value: s, label: s }))} />
+        <Select label="Rules of court" value={rules} onChange={(e) => setRules(e.target.value)} options={RULE_SETS.map((s) => ({ value: s, label: s }))} />
       </div>
       <Button onClick={generate} isLoading={ai.running} leftIcon={<Sparkles className="w-4 h-4" />}>Generate checklist</Button>
       <AiResult ai={ai} title="Filing checklist" exportTitle={`Checklist — ${matter}`} allowSave showAudit={false} />

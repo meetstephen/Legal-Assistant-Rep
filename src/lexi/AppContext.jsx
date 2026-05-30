@@ -62,6 +62,7 @@ const DEFAULT_PROFILE = {
   monthlyAiBudget: 20,
   notifyEmail: '',
   reminderWindow: 7,
+  feedbackEmail: '',
   // AI rate limits (per authenticated user / device)
   aiPerMinute: RATE_DEFAULTS.perMinute,
   aiPerDay: RATE_DEFAULTS.perDay,

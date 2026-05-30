@@ -141,6 +141,10 @@ export function Layout({ children }) {
           <div className="mt-5 flex-1">
             <NavList />
           </div>
+          <div className="pt-3 mt-2 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-1.5 text-[10px] text-slate-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            Private Beta
+          </div>
         </aside>
 
         {/* Mobile drawer */}
@@ -157,6 +161,10 @@ export function Layout({ children }) {
               <GroundingSwitch />
               <div className="mt-5">
                 <NavList onNavigate={() => setMobileOpen(false)} />
+              </div>
+              <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/60 flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Private Beta
               </div>
             </div>
           </div>

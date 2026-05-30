@@ -11,6 +11,7 @@ import { MODELS } from '../ai.js';
 import { Card, Button, Input, Select, Toggle, PageHeader } from '../components/ui.jsx';
 import { formatCurrency, cn } from '../utils.js';
 import { computeProfessionalFee } from '../helpers.js';
+import { JURISDICTIONS } from '../legalData.js';
 
 export function Admin() {
   const { profile, setProfile, showToast, audit } = useApp();
@@ -60,7 +61,7 @@ export function Admin() {
         <h3 className="font-semibold text-slate-900 dark:text-white">Defaults & AI budget</h3>
         <div className="grid sm:grid-cols-3 gap-4">
           <Input label="Default court" value={f.defaultCourt} onChange={(e) => setF({ ...f, defaultCourt: e.target.value })} />
-          <Input label="Default jurisdiction" value={f.defaultJurisdiction} onChange={(e) => setF({ ...f, defaultJurisdiction: e.target.value })} />
+          <Select label="Default jurisdiction" value={f.defaultJurisdiction} onChange={(e) => setF({ ...f, defaultJurisdiction: e.target.value })} options={JURISDICTIONS.map((j) => ({ value: j, label: j }))} />
           <Input label="Monthly AI budget (USD)" type="number" value={f.monthlyAiBudget} onChange={(e) => setF({ ...f, monthlyAiBudget: e.target.value })} />
           <Input label="AI calls / minute" type="number" value={f.aiPerMinute} onChange={(e) => setF({ ...f, aiPerMinute: e.target.value })} />
           <Input label="AI calls / day" type="number" value={f.aiPerDay} onChange={(e) => setF({ ...f, aiPerDay: e.target.value })} />

@@ -92,6 +92,7 @@ function FirmTab() {
         <Input label="Phone" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
       </div>
       <Input label="Address" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} />
+      <Input label="Beta feedback email (optional)" value={f.feedbackEmail} onChange={(e) => setF({ ...f, feedbackEmail: e.target.value })} placeholder="feedback@firm.com — where Help → Send feedback is addressed" />
       <Textarea label="Letterhead footer (appears on exports)" rows={2} value={f.letterheadFooter} onChange={(e) => setF({ ...f, letterheadFooter: e.target.value })} />
       <Textarea label="Bank details (for invoices/exports)" rows={2} value={f.bankDetails} onChange={(e) => setF({ ...f, bankDetails: e.target.value })} />
       <Button onClick={save} leftIcon={<Save className="w-4 h-4" />}>Save profile</Button>

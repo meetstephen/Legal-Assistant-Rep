@@ -12,6 +12,8 @@ import { Card, Button, Input, Textarea, Select, Badge, Modal, EmptyState, PageHe
 import { STATUS_BADGE } from '../themes.js';
 import { formatDate, formatRelativeDate, daysUntil, cn } from '../utils.js';
 import { exportPdf, exportTxt } from '../exports.js';
+import { buildICS } from '../ics.js';
+import { downloadBlob } from '../utils.js';
 
 const STATUSES = ['active', 'pending', 'completed', 'archived'];
 
@@ -174,7 +176,25 @@ export function Cases() {
 
       {tab === 'calendar' && (
         <Card variant="glass">
-          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Upcoming hearings</h3>
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <h3 className="font-semibold text-slate-900 dark:text-white">Upcoming hearings</h3>
+            {allHearings.length > 0 && (
+              <Button size="sm" variant="secondary" leftIcon={<Calendar className="w-4 h-4" />}
+                onClick={() => {
+                  const events = allHearings.map((h) => ({
+                    uid: `${h.caseId}-${h.date}`,
+                    title: `Hearing: ${h.title}`,
+                    date: h.date,
+                    description: `Suit ${h.suitNo}${h.note ? ` — ${h.note}` : ''}`,
+                    location: h.court || '',
+                  }));
+                  downloadBlob(buildICS(events, 'LexiAssist Hearings'), 'lexiassist_hearings.ics', 'text/calendar;charset=utf-8');
+                  showToast('success', 'Calendar file downloaded — open it to add to your calendar.');
+                }}>
+                Add to calendar (.ics)
+              </Button>
+            )}
+          </div>
           {allHearings.length === 0 ? (
             <EmptyState icon={Calendar} title="No hearings scheduled" description="Add hearing dates to your cases to see them here." />
           ) : (
