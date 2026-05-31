@@ -38,9 +38,9 @@ function Shell({ children, subtitle }) {
 }
 
 const MODES = {
-  signin: { label: 'Sign in', cta: 'Sign in', icon: LogIn },
-  signup: { label: 'Create account', cta: 'Create account', icon: UserPlus },
-  magic: { label: 'Magic link', cta: 'Email me a link', icon: Sparkles },
+  signin: { label: '\u{1F511} Log In', cta: 'Log In', icon: LogIn },
+  signup: { label: '\u2728 Sign Up', cta: 'Sign Up', icon: UserPlus },
+  magic: { label: '\u2709\uFE0F Magic Link', cta: 'Email me a link', icon: Sparkles },
 };
 
 function LoginScreen() {

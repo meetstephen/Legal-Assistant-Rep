@@ -31,32 +31,57 @@ const CLOUD_LABEL = {
 };
 
 function AccountCard() {
-  const { supabaseEnabled, user, cloudStatus, signOut, showToast } = useApp();
-  if (!supabaseEnabled) return null;
-  const c = CLOUD_LABEL[cloudStatus] || CLOUD_LABEL.idle;
-  return (
-    <Card variant="glass" className="flex items-center justify-between gap-3 flex-wrap">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
-          <User className="w-5 h-5 text-emerald-500" />
+  const { supabaseEnabled, user, cloudStatus, signOut, lockEnabled, lockNow, profile, showToast } = useApp();
+
+  if (supabaseEnabled) {
+    const c = CLOUD_LABEL[cloudStatus] || CLOUD_LABEL.idle;
+    return (
+      <Card variant="glass" className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+            <User className="w-5 h-5 text-emerald-500" />
+          </div>
+          <div>
+            <p className="font-medium text-slate-900 dark:text-white">{user?.email || 'Signed in'}</p>
+            <p className={cn('text-xs flex items-center gap-1', c.cls)}>
+              {cloudStatus === 'error' ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />} {c.text}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="font-medium text-slate-900 dark:text-white">{user?.email || 'Signed in'}</p>
-          <p className={cn('text-xs flex items-center gap-1', c.cls)}>
-            {cloudStatus === 'error' ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />} {c.text}
-          </p>
+        <Button variant="secondary" size="sm" leftIcon={<LogOut className="w-4 h-4" />}
+          onClick={async () => { await signOut(); showToast('info', 'Signed out.'); }}>
+          Sign out
+        </Button>
+      </Card>
+    );
+  }
+
+  // Local mode: show admin name and lock workspace button
+  if (lockEnabled) {
+    return (
+      <Card variant="glass" className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+            <User className="w-5 h-5 text-emerald-500" />
+          </div>
+          <div>
+            <p className="font-medium text-slate-900 dark:text-white">{profile.lawyerName || 'Local workspace'}</p>
+            <p className="text-xs text-slate-400">Tap Lock to sign out</p>
+          </div>
         </div>
-      </div>
-      <Button variant="secondary" size="sm" leftIcon={<LogOut className="w-4 h-4" />}
-        onClick={async () => { await signOut(); showToast('info', 'Signed out.'); }}>
-        Sign out
-      </Button>
-    </Card>
-  );
+        <Button variant="secondary" size="sm" leftIcon={<Lock className="w-4 h-4" />}
+          onClick={() => { lockNow(); showToast('info', 'Workspace locked.'); }}>
+          Lock workspace
+        </Button>
+      </Card>
+    );
+  }
+
+  return null;
 }
 
 export function Profile() {
-  const [tab, setTab] = useState('firm');
+  const [tab, setTab] = useState('security');
   return (
     <div className="space-y-6">
       <PageHeader icon={User} title="Profile" subtitle="Firm details, AI settings, usage, notifications and data" gradient="from-slate-500 to-slate-700" />
@@ -148,6 +173,14 @@ function SecurityTab() {
   const [pw2, setPw2] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Detect if the bootstrap default passcode is still in use
+  const isDefaultPasscode = (() => {
+    try {
+      const rec = JSON.parse(localStorage.getItem('lexi2:app-lock') || 'null');
+      return rec?.isDefault === true;
+    } catch { return false; }
+  })();
+
   const savePin = async () => {
     if (pin.length < 4) { showToast('warning', 'Use at least 4 characters.'); return; }
     if (pin !== pin2) { showToast('warning', 'Passcodes do not match.'); return; }
@@ -167,6 +200,17 @@ function SecurityTab() {
 
   return (
     <div className="space-y-4">
+      {isDefaultPasscode && (
+        <div className="rounded-xl border-2 border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/30 p-4 flex items-start gap-3">
+          <ShieldCheck className="w-6 h-6 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-amber-800 dark:text-amber-200">Change your passcode now</p>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+              You are still using the default bootstrap passcode. For security, set a personal passcode below immediately.
+            </p>
+          </div>
+        </div>
+      )}
       {supabaseEnabled && (
         <Card variant="glass" className="space-y-3">
           <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2"><KeyRound className="w-5 h-5 text-emerald-500" /> Change account password</h3>

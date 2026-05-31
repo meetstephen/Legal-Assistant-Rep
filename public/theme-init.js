@@ -7,7 +7,7 @@
     var dark = t === null ? true : JSON.parse(t);
     if (dark) document.documentElement.classList.add('dark');
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-    document.documentElement.style.backgroundColor = dark ? '#020617' : '#faf8f5';
+    document.documentElement.style.backgroundColor = dark ? '#020617' : '#e8e2d8';
   } catch {
     /* ignore */
   }

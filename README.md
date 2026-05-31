@@ -115,8 +115,11 @@ Live grounding uses **Google Search as a tool through the Gemini API**, which dr
 - 17 event types, colour-coded, **hash-chained** (retroactive tampering is detectable), admin-viewable with filtering and CSV export
 
 ### 🔒 Security
-- **Authentication** — optional Supabase email login (password or magic link) with **forgot-password + password-recovery** flows; per-user data isolation via Postgres **Row Level Security**
+- **Authentication** — optional Supabase email login (password or magic link) with **forgot-password + password-recovery** flows; per-user data isolation via Postgres **Row Level Security**. Login tabs are clearly labelled (🔑 Log In / ✨ Sign Up / ✉️ Magic Link).
 - **Device passcode lock** — an optional always-on login wall (`src/lexi/auth.js`): **PBKDF2-HMAC-SHA256 (260,000 iterations)** via Web Crypto, constant-time compare, and a **5-attempt / 5-minute lockout**
+- **Discoverable password/passcode change** — Profile opens on the **Security tab by default** so changing credentials is immediate; a prominent amber banner warns when the bootstrap default passcode is still active
+- **Visible Lock/Sign-out** — the sidebar Lock button is always visible when a passcode is configured (in both local and cloud modes), with a "Tap Lock to sign out" hint in local mode; the Profile page also shows a "Lock workspace" card in local mode
+- **Admin password reset** — admins can reset any user's password (sends a Supabase reset email in cloud mode, or resets the device passcode in local mode) from the Admin panel
 - **Hardened HTTP headers** — strict **Content-Security-Policy** (no inline scripts), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, and HSTS (`vercel.json` / `netlify.toml`)
 - **Prompt-injection protection** — `sanitizeDocContext()` strips control characters, detects known injection patterns, and wraps uploaded document text in hard "data-only" delimiters before it reaches the AI
 - **Local key handling** — your Gemini key is stored only in this browser (lightly obfuscated) and sent only to Google's API (or hidden entirely in server-key proxy mode)
@@ -334,5 +337,6 @@ LexiAssist provides **AI-generated legal information** for workflow support, dra
 ---
 
 <p align="center">
-  <strong>LexiAssist 2.0</strong> · Built for Nigerian lawyers · React + Vite edition · Powered by Google Gemini · Reasoning + live-web grounded · Private Beta
+  <strong>LexiAssist 2.0</strong> · Built for Nigerian lawyers · React + Vite edition · Powered by Google Gemini · Reasoning + live-web grounded · Private Beta<br/>
+  <em>Oyim Stephen Esq. &amp; Associates</em>
 </p>
