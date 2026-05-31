@@ -227,21 +227,18 @@ function SecurityTab() {
         <p className="text-sm text-slate-500">
           Adds a login wall on this device. The passcode is hashed with <strong>PBKDF2-HMAC-SHA256 (260,000 iterations)</strong>, verified in constant time, with a 5-attempt / 5-minute lockout. It is stored only on this device and never synced.
         </p>
-        {lockEnabled ? (
-          <div className="flex flex-wrap gap-2">
+        {lockEnabled && (
+          <div className="flex flex-wrap gap-2 mb-3">
             <Badge variant="success">Passcode lock is ON</Badge>
             <Button size="sm" variant="secondary" onClick={lockNow} leftIcon={<Lock className="w-4 h-4" />}>Lock now</Button>
             <Button size="sm" variant="ghost" className="text-red-500" onClick={() => { if (window.confirm('Remove the device passcode?')) { clearPasscode(); showToast('success', 'Passcode removed.'); } }} leftIcon={<Trash2 className="w-4 h-4" />}>Remove passcode</Button>
           </div>
-        ) : (
-          <>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <PasswordInput label="New passcode" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} hint="At least 4 characters." />
-              <PasswordInput label="Confirm passcode" inputMode="numeric" value={pin2} onChange={(e) => setPin2(e.target.value)} />
-            </div>
-            <Button onClick={savePin} isLoading={busy} leftIcon={<ShieldCheck className="w-4 h-4" />}>Enable passcode lock</Button>
-          </>
         )}
+        <div className="grid sm:grid-cols-2 gap-3">
+          <PasswordInput label={lockEnabled ? 'New passcode (to change)' : 'New passcode'} inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} hint="At least 4 characters." />
+          <PasswordInput label="Confirm passcode" inputMode="numeric" value={pin2} onChange={(e) => setPin2(e.target.value)} />
+        </div>
+        <Button onClick={savePin} isLoading={busy} leftIcon={<ShieldCheck className="w-4 h-4" />}>{lockEnabled ? 'Change passcode' : 'Enable passcode lock'}</Button>
       </Card>
     </div>
   );
