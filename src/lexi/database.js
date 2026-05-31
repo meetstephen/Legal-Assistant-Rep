@@ -32,6 +32,7 @@ export const STORAGE_KEYS = {
   APP_LOCK_ATTEMPTS: 'app-lock-attempts',
   ADMIN_USERS: 'admin-users',
   FEEDBACK: 'feedback',
+  ONBOARDING_DONE: 'onboarding-done',
 };
 
 export const storage = {
