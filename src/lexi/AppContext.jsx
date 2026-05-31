@@ -104,7 +104,12 @@ export function AppProvider({ children }) {
 
   // ---- local passcode lock (device-level, PBKDF2 via auth.js) ----
   const [lockEnabled, setLockEnabled] = useState(() => !!storage.get(STORAGE_KEYS.APP_LOCK, null));
-  const [unlocked, setUnlocked] = useState(false); // Always start locked if a passcode is set
+  // Persist unlock state in sessionStorage so a page refresh doesn't re-lock.
+  // Clears when the tab/window is closed (re-locks on next visit for security).
+  const [unlocked, setUnlocked] = useState(() => {
+    if (!storage.get(STORAGE_KEYS.APP_LOCK, null)) return true; // no lock set
+    try { return sessionStorage.getItem('lexi2:session-unlocked') === '1'; } catch { return false; }
+  });
 
   // ---- effects: theme + persistence ----
   useEffect(() => {
@@ -304,9 +309,17 @@ export function AppProvider({ children }) {
       setUser(u);
       if (event === 'PASSWORD_RECOVERY') setRecovery(true);
     });
+    // Re-check session when tab becomes visible (after phone lock / tab switch)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        getSessionUser().then((u) => { if (active) setUser(u); }).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       active = false;
       unsub();
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
@@ -401,6 +414,7 @@ export function AppProvider({ children }) {
     if (ok) {
       storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, resetLockout());
       setUnlocked(true);
+      try { sessionStorage.setItem('lexi2:session-unlocked', '1'); } catch { /* ignore */ }
       audit('LOGIN', 'passcode');
       return { ok: true, isDefault: !!record?.isDefault };
     }
@@ -416,6 +430,7 @@ export function AppProvider({ children }) {
     storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, resetLockout());
     setLockEnabled(true);
     setUnlocked(true);
+    try { sessionStorage.setItem('lexi2:session-unlocked', '1'); } catch { /* ignore */ }
     audit('SETTINGS_UPDATE', 'passcode-set');
   }, [audit]);
 
@@ -428,7 +443,10 @@ export function AppProvider({ children }) {
   }, [audit]);
 
   const lockNow = useCallback(() => {
-    if (lockEnabled) setUnlocked(false);
+    if (lockEnabled) {
+      setUnlocked(false);
+      try { sessionStorage.removeItem('lexi2:session-unlocked'); } catch { /* ignore */ }
+    }
   }, [lockEnabled]);
 
   // ---- AI rate-limit guard (returns true if the call may proceed) ----
