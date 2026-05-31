@@ -17,8 +17,8 @@ import { SUPABASE_ENABLED } from '../runtime.js';
 // ---- Admin user seed data ----
 const SEED_ADMIN = {
   id: 'admin-seed-001',
-  email: 'oyimstephen@lexiassist.ng',
-  name: 'Oyim Stephen',
+  email: 'oyimstephenesq@gmail.com',
+  name: 'Oyim Stephen Esq.',
   role: 'admin',
   status: 'active',
   lastLogin: new Date().toISOString(),
