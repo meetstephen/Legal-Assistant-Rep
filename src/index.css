@@ -12,7 +12,7 @@
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     text-rendering: optimizeLegibility;
-    background-color: #faf8f5;
+    background-color: #e8e2d8;
   }
   .dark body {
     background-color: #020617;
@@ -20,12 +20,12 @@
 }
 
 @layer utilities {
-  /* Premium layered backdrop: soft emerald/teal glows over a deep base. */
+  /* Premium layered backdrop: warm muted sepia (NOT blinding white). */
   .lexi-app-bg {
-    background-color: #faf8f5;
+    background-color: #e8e2d8;
     background-image:
-      radial-gradient(1100px 560px at 100% -8%, rgba(16, 185, 129, 0.07), transparent 55%),
-      radial-gradient(820px 460px at -8% 108%, rgba(20, 184, 166, 0.06), transparent 55%);
+      radial-gradient(1100px 560px at 100% -8%, rgba(16, 185, 129, 0.05), transparent 55%),
+      radial-gradient(820px 460px at -8% 108%, rgba(120, 100, 70, 0.06), transparent 55%);
     background-attachment: fixed;
   }
   .dark .lexi-app-bg {
@@ -83,6 +83,20 @@
   line-height: 1.75;
   word-break: break-word;
 }
+
+/* Light mode: tone down all whites to warm cream so nothing is blinding. */
+:root:not(.dark) {
+  --card-bg: #f5efe8;
+  --card-bg-glass: rgba(245, 239, 232, 0.85);
+  --header-bg: rgba(240, 234, 226, 0.85);
+  --input-bg: #f5efe8;
+}
+/* Override Tailwind bg-white to a warm tone in light mode */
+:root:not(.dark) .bg-white { background-color: var(--card-bg) !important; }
+:root:not(.dark) .bg-white\/80 { background-color: var(--header-bg) !important; }
+:root:not(.dark) .bg-white\/50 { background-color: rgba(245, 239, 232, 0.5) !important; }
+:root:not(.dark) .bg-slate-50 { background-color: #ede7df !important; }
+:root:not(.dark) .bg-slate-100 { background-color: #e8e2d8 !important; }
 .lexi-prose h1,
 .lexi-prose h2,
 .lexi-prose h3 {
