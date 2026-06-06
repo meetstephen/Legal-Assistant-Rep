@@ -3,7 +3,10 @@
 // ============================================================
 
 import React, { useState } from 'react';
-import { Scale, Sun, Moon, Menu, X, Globe, KeyRound, Search as SearchIcon, ChevronLeft, ChevronRight as ChevronRightIcon, LogOut, Lock, User as UserIcon } from 'lucide-react';
+import {
+  Scale, Sun, Moon, Menu, X, Globe, KeyRound, Search as SearchIcon,
+  ChevronLeft, ChevronRight as ChevronRightIcon, LogOut, Lock, User as UserIcon,
+} from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { NAV_SECTIONS } from '../nav.js';
 import { BRAND_LABEL, TAGLINE } from '../runtime.js';
@@ -11,8 +14,15 @@ import { cn } from '../utils.js';
 import { Toggle, Badge } from './ui.jsx';
 
 function NavList({ onNavigate }) {
-  const { activePage, navigate, cases, tasks, clients, profile } = useApp();
-  const counts = { cases: cases.length, tasks: tasks.filter((t) => t.status !== 'done').length, clients: clients.length };
+  // isAdmin is now a first-class context value computed from authenticated
+  // user's email — never read from profile to prevent privilege escalation.
+  const { activePage, navigate, cases, tasks, clients, isAdmin } = useApp();
+  const counts = {
+    cases: cases.length,
+    tasks: tasks.filter((t) => t.status !== 'done').length,
+    clients: clients.length,
+  };
+
   return (
     <nav className="space-y-5">
       {NAV_SECTIONS.map((section) => (
@@ -22,7 +32,7 @@ function NavList({ onNavigate }) {
           </p>
           <div className="space-y-0.5">
             {section.items
-              .filter((item) => !item.adminOnly || profile.isAdmin)
+              .filter((item) => !item.adminOnly || isAdmin)
               .map((item) => {
                 const Icon = item.icon;
                 const active = activePage === item.id;
@@ -43,7 +53,9 @@ function NavList({ onNavigate }) {
                   >
                     <Icon className="w-4 h-4 flex-shrink-0" />
                     <span className="flex-1 text-left">{item.label}</span>
-                    {badge > 0 && <Badge variant={active ? 'success' : 'default'}>{badge}</Badge>}
+                    {badge > 0 && (
+                      <Badge variant={active ? 'success' : 'default'}>{badge}</Badge>
+                    )}
                   </button>
                 );
               })}
@@ -70,19 +82,17 @@ function GroundingSwitch() {
       <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-400">
         <KeyRound className="w-3 h-3" />
         {useProxy ? (
-          <span className="text-emerald-500">Key on server (secure)</span>
+          <span className="text-emerald-500">Server key active (admin)</span>
         ) : aiReady ? (
           <span className="text-emerald-500">API key configured</span>
         ) : (
-          <span className="text-amber-500">No API key</span>
+          <span className="text-amber-500">No API key — add yours in Profile</span>
         )}
       </div>
     </div>
   );
 }
 
-// Account / session bar: shows the signed-in user (cloud mode) and a way to
-// lock the workspace or sign out — the sidebar "logout" the user asked for.
 function AccountBar({ onAction }) {
   const { supabaseEnabled, user, signOut, lockEnabled, lockNow, showToast } = useApp();
   const canSignOut = supabaseEnabled && !!user;
@@ -90,7 +100,11 @@ function AccountBar({ onAction }) {
   if (!canSignOut && !canLock) return null;
 
   const doLock = () => { lockNow(); onAction && onAction(); };
-  const doSignOut = async () => { await signOut(); showToast('info', 'Signed out.'); onAction && onAction(); };
+  const doSignOut = async () => {
+    await signOut();
+    showToast('info', 'Signed out.');
+    onAction && onAction();
+  };
 
   return (
     <div className="mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800/60 space-y-2">
@@ -195,7 +209,7 @@ export function Layout({ children }) {
           )}
         </aside>
 
-        {/* Sidebar collapse/expand button (desktop) */}
+        {/* Sidebar collapse/expand button */}
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="hidden lg:flex items-center justify-center w-5 h-10 rounded-r-lg bg-slate-100 dark:bg-slate-800 border border-l-0 border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-500 fixed top-1/2 -translate-y-1/2 z-30 transition-all"
