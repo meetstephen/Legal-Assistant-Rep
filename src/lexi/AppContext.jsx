@@ -29,6 +29,12 @@ import { hashPasscode, verifyPasscode, evaluateLockout, registerFailure, resetLo
 
 const AppContext = createContext(null);
 
+// ---- Admin access control --------------------------------------------------
+// Only users whose Supabase email appears in this set gain admin rights.
+// In local-only mode (no Supabase) the single user is always treated as admin.
+// To add another admin, add their email here and redeploy.
+const ADMIN_EMAILS = new Set(['oyimstephenesq@gmail.com']);
+
 // Workspace slices that sync to the cloud (excludes device-local settings and
 // the locally-stored API key).
 const CLOUD_KEYS = [
@@ -43,6 +49,8 @@ export const useApp = () => {
   return ctx;
 };
 
+// isAdmin is deliberately NOT in DEFAULT_PROFILE — it is a computed value
+// derived from the authenticated user's email, never stored or editable.
 const DEFAULT_PROFILE = {
   firmName: '',
   lawyerName: '',
@@ -51,8 +59,6 @@ const DEFAULT_PROFILE = {
   address: '',
   bankDetails: '',
   letterheadFooter: '',
-  isAdmin: true,
-  // Firm admin settings
   hourlyRate: FEE_DEFAULTS.hourlyRate,
   currency: FEE_DEFAULTS.currency,
   vatRate: FEE_DEFAULTS.vatRate,
@@ -63,10 +69,16 @@ const DEFAULT_PROFILE = {
   notifyEmail: '',
   reminderWindow: 7,
   feedbackEmail: '',
-  // AI rate limits (per authenticated user / device)
   aiPerMinute: RATE_DEFAULTS.perMinute,
   aiPerDay: RATE_DEFAULTS.perDay,
 };
+
+// Strip any stored isAdmin from a profile object so it cannot be used for
+// access-control decisions.
+function sanitiseProfile(raw = {}) {
+  const { isAdmin: _removed, ...safe } = raw;
+  return safe;
+}
 
 export function AppProvider({ children }) {
   // ---- settings ----
@@ -74,7 +86,10 @@ export function AppProvider({ children }) {
   const [apiKey, setApiKeyState] = useState(() => deobfuscate(storage.get(STORAGE_KEYS.API_KEY, '')));
   const [model, setModelState] = useState(() => storage.get(STORAGE_KEYS.MODEL, DEFAULT_MODEL));
   const [webGrounding, setWebGroundingState] = useState(() => storage.get(STORAGE_KEYS.WEB_GROUNDING, false));
-  const [profile, setProfileState] = useState(() => ({ ...DEFAULT_PROFILE, ...storage.get(STORAGE_KEYS.PROFILE, {}) }));
+  const [profile, setProfileState] = useState(() => ({
+    ...DEFAULT_PROFILE,
+    ...sanitiseProfile(storage.get(STORAGE_KEYS.PROFILE, {})),
+  }));
 
   // ---- navigation ----
   const [activePage, setActivePage] = useState('home');
@@ -97,19 +112,27 @@ export function AppProvider({ children }) {
   // ---- auth / cloud sync (Supabase) ----
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(SUPABASE_ENABLED);
-  const [cloudStatus, setCloudStatus] = useState('idle'); // idle | syncing | synced | error
-  const [recovery, setRecovery] = useState(false); // PASSWORD_RECOVERY in progress
+  const [cloudStatus, setCloudStatus] = useState('idle');
+  const [recovery, setRecovery] = useState(false);
   const syncReadyRef = useRef(false);
   const saveTimerRef = useRef(null);
 
-  // ---- local passcode lock (device-level, PBKDF2 via auth.js) ----
+  // ---- local passcode lock ----
   const [lockEnabled, setLockEnabled] = useState(() => !!storage.get(STORAGE_KEYS.APP_LOCK, null));
-  // Persist unlock state in sessionStorage so a page refresh doesn't re-lock.
-  // Clears when the tab/window is closed (re-locks on next visit for security).
   const [unlocked, setUnlocked] = useState(() => {
-    if (!storage.get(STORAGE_KEYS.APP_LOCK, null)) return true; // no lock set
+    if (!storage.get(STORAGE_KEYS.APP_LOCK, null)) return true;
     try { return sessionStorage.getItem('lexi2:session-unlocked') === '1'; } catch { return false; }
   });
+
+  // ---- computed admin status (never stored, always derived from auth) ----
+  // In Supabase mode: true only if the signed-in user's email is in ADMIN_EMAILS.
+  // In local-only mode: single-user install is always treated as admin.
+  const isAdmin = useMemo(() => {
+    if (SUPABASE_ENABLED) {
+      return !!user && ADMIN_EMAILS.has((user.email || '').toLowerCase());
+    }
+    return true; // local single-user install
+  }, [user]);
 
   // ---- effects: theme + persistence ----
   useEffect(() => {
@@ -153,13 +176,18 @@ export function AppProvider({ children }) {
     setWebGroundingState(v);
     storage.set(STORAGE_KEYS.WEB_GROUNDING, v);
   }, []);
+
+  // setProfile deliberately strips any isAdmin field — admin status is computed
+  // from the authenticated user's email and must never be set via profile.
   const setProfile = useCallback((patch) => {
     setProfileState((prev) => {
-      const next = { ...prev, ...patch };
+      const safePatch = sanitiseProfile(patch);
+      const next = { ...prev, ...safePatch };
       storage.set(STORAGE_KEYS.PROFILE, next);
       return next;
     });
   }, []);
+
   const toggleTheme = useCallback(() => setIsDark((p) => !p), []);
 
   const navigate = useCallback((page, params = {}) => {
@@ -229,7 +257,7 @@ export function AppProvider({ children }) {
   }, []);
   const deleteTimeEntry = useCallback((id) => setTimeEntries((prev) => prev.filter((e) => e.id !== id)), []);
 
-  // ---- analyses (saved AI outputs) ----
+  // ---- analyses ----
   const saveAnalysis = useCallback((data) => {
     const item = { ...data, id: generateId(), createdAt: new Date().toISOString() };
     setAnalyses((prev) => [...prev, item]);
@@ -262,7 +290,7 @@ export function AppProvider({ children }) {
     setTimeEntries(storage.get(STORAGE_KEYS.TIME_ENTRIES, []));
     setAnalyses(storage.get(STORAGE_KEYS.ANALYSES, []));
     setTemplates(storage.get(STORAGE_KEYS.TEMPLATES, DEFAULT_TEMPLATES));
-    setProfileState({ ...DEFAULT_PROFILE, ...storage.get(STORAGE_KEYS.PROFILE, {}) });
+    setProfileState({ ...DEFAULT_PROFILE, ...sanitiseProfile(storage.get(STORAGE_KEYS.PROFILE, {})) });
     audit('BACKUP', 'restore');
   }, [audit]);
 
@@ -277,7 +305,11 @@ export function AppProvider({ children }) {
     setAiUsage(storage.get(STORAGE_KEYS.AI_USAGE, []));
     setTemplates(storage.get(STORAGE_KEYS.TEMPLATES, DEFAULT_TEMPLATES));
     setAuditLog(storage.get(STORAGE_KEYS.AUDIT_LOG, []));
-    setProfileState({ ...DEFAULT_PROFILE, ...storage.get(STORAGE_KEYS.PROFILE, {}) });
+    // Strip any stored isAdmin — admin status is always computed from auth
+    setProfileState({
+      ...DEFAULT_PROFILE,
+      ...sanitiseProfile(storage.get(STORAGE_KEYS.PROFILE, {})),
+    });
   }, []);
 
   const resetLocalData = useCallback(() => {
@@ -309,7 +341,6 @@ export function AppProvider({ children }) {
       setUser(u);
       if (event === 'PASSWORD_RECOVERY') setRecovery(true);
     });
-    // Re-check session when tab becomes visible (after phone lock / tab switch)
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
         getSessionUser().then((u) => { if (active) setUser(u); }).catch(() => {});
@@ -350,13 +381,10 @@ export function AppProvider({ children }) {
       resetLocalData();
       setCloudStatus('idle');
     }
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [user, rehydrateFromStorage, resetLocalData]);
 
   // Debounced push of the workspace to the cloud whenever data changes.
-  // Declared after the per-slice persistence effects so localStorage is fresh.
   useEffect(() => {
     if (!SUPABASE_ENABLED || !user || !syncReadyRef.current) return undefined;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -394,6 +422,11 @@ export function AppProvider({ children }) {
   const changePassword = useCallback(async (newPassword) => {
     await sbUpdatePassword(newPassword);
     setRecovery(false);
+    // Clear the recovery hash from the URL so refreshing the page does not
+    // re-fire the PASSWORD_RECOVERY auth event.
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.replaceState({}, '', window.location.pathname + window.location.search);
+    }
   }, []);
 
   // ---- local passcode lock actions ----
@@ -404,7 +437,6 @@ export function AppProvider({ children }) {
       return { ok: false, locked: true, remainingMs: status.remainingMs };
     }
     const record = storage.get(STORAGE_KEYS.APP_LOCK, null);
-    // Bootstrap case: accept "admin" as the default first-run passcode.
     let ok = false;
     if (record && record.isDefault) {
       ok = pin === 'admin';
@@ -449,7 +481,7 @@ export function AppProvider({ children }) {
     }
   }, [lockEnabled]);
 
-  // ---- AI rate-limit guard (returns true if the call may proceed) ----
+  // ---- AI rate-limit guard ----
   const guardAi = useCallback(() => {
     const now = Date.now();
     const times = prune(storage.get('ai-call-times', []), now);
@@ -471,8 +503,12 @@ export function AppProvider({ children }) {
       // settings
       isDark, toggleTheme, apiKey, setApiKey, model, setModel,
       webGrounding, setWebGrounding, profile, setProfile,
-      // AI is "ready" if the server proxy holds the key, or the user set one
-      aiReady: USE_PROXY || !!apiKey,
+      // admin status — computed from authenticated user's email, never stored
+      isAdmin,
+      // AI ready:
+      //   Admin → proxy (server key) OR personal key
+      //   Non-admin → personal key only (they must enter their own Gemini key)
+      aiReady: isAdmin ? (USE_PROXY || !!apiKey) : !!apiKey,
       useProxy: USE_PROXY,
       // auth / cloud sync
       supabaseEnabled: SUPABASE_ENABLED,
@@ -507,10 +543,15 @@ export function AppProvider({ children }) {
     }),
     [
       isDark, toggleTheme, apiKey, setApiKey, model, setModel, webGrounding, setWebGrounding,
-      profile, setProfile, activePage, pageParams, navigate, cases, addCase, updateCase, deleteCase,
-      clients, addClient, updateClient, deleteClient, getClientName, tasks, addTask, updateTask, deleteTask,
-      timeEntries, addTimeEntry, deleteTimeEntry, analyses, saveAnalysis, deleteAnalysis, aiHistory, pushHistory,
-      aiUsage, recordUsage, templates, addTemplate, deleteTemplate, auditLog, audit, toasts, showToast, removeToast,
+      profile, setProfile, isAdmin, activePage, pageParams, navigate,
+      cases, addCase, updateCase, deleteCase,
+      clients, addClient, updateClient, deleteClient, getClientName,
+      tasks, addTask, updateTask, deleteTask,
+      timeEntries, addTimeEntry, deleteTimeEntry,
+      analyses, saveAnalysis, deleteAnalysis,
+      aiHistory, pushHistory, aiUsage, recordUsage,
+      templates, addTemplate, deleteTemplate,
+      auditLog, audit, toasts, showToast, removeToast,
       exportBackup, importBackup,
       user, authLoading, cloudStatus, recovery, signIn, signUp, magicLink, doSignOut,
       requestPasswordReset, changePassword,
