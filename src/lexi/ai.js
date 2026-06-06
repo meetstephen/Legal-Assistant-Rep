@@ -8,16 +8,43 @@
 //   • Graceful fallback chain: thinking+search -> search-only -> plain
 //   • Per-call usage capture + estimated spend
 //   • Optional silent quality-gate self-critique
+//
+// API key routing logic:
+//   1. If the caller supplies a personal apiKey → direct call to Gemini API
+//      (used by non-admin users who entered their own key in Settings)
+//   2. No personal key + USE_PROXY=true → call goes through /api/gemini
+//      (used by the admin whose key lives in a server-side env var)
+//   3. No personal key + no proxy → throws, caller shows "add your key" prompt
 // ============================================================
 
 const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 import { USE_PROXY } from './runtime.js';
 
-// Single network entry point. In proxy mode the request is POSTed to the
-// serverless function (which injects the server-side key); otherwise it goes
-// straight to Google with the user's own key.
+// ---- Single network entry point -----------------------------------------
+// Priority 1: personal key → direct Gemini call (key never goes to our server)
+// Priority 2: no personal key + proxy enabled → /api/gemini (server injects key)
+// Priority 3: neither → throw so the caller can surface the "add key" prompt
 function callGemini({ apiKey, model, stream, body, signal }) {
+  // Personal key takes priority — it is always used directly regardless of
+  // whether the proxy is also configured.  This lets non-admin users bring
+  // their own key while the proxy remains available for the admin (who has no
+  // personal key set in the UI).
+  if (apiKey) {
+    const method = stream ? 'streamGenerateContent' : 'generateContent';
+    const qs = stream
+      ? `?alt=sse&key=${encodeURIComponent(apiKey)}`
+      : `?key=${encodeURIComponent(apiKey)}`;
+    return fetch(`${API_ROOT}/${model}:${method}${qs}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    });
+  }
+
+  // No personal key — route through the server proxy so the admin's
+  // GEMINI_API_KEY (stored in Vercel env vars) is injected server-side.
   if (USE_PROXY) {
     return fetch('/api/gemini', {
       method: 'POST',
@@ -26,16 +53,11 @@ function callGemini({ apiKey, model, stream, body, signal }) {
       signal,
     });
   }
-  const method = stream ? 'streamGenerateContent' : 'generateContent';
-  const suffix = stream
-    ? `?alt=sse&key=${encodeURIComponent(apiKey)}`
-    : `?key=${encodeURIComponent(apiKey)}`;
-  return fetch(`${API_ROOT}/${model}:${method}${suffix}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  });
+
+  throw new Error(
+    'No Gemini API key configured. ' +
+    'Please add your key in Profile → AI Settings.'
+  );
 }
 
 export const MODELS = [
@@ -47,15 +69,9 @@ export const MODELS = [
 
 export const DEFAULT_MODEL = 'gemini-2.5-flash';
 
-// Per-mode thinking budget (tokens). -1 would mean "dynamic"; we use explicit
-// budgets so behaviour is predictable and auditable.
 export const THINKING_BUDGETS = { brief: 1024, standard: 4096, comprehensive: 8192 };
-
-// Per-mode max output tokens.
 export const OUTPUT_TOKENS = { brief: 2048, standard: 8192, comprehensive: 32768 };
 
-// Approximate public pricing (USD per 1M tokens). Estimates only — used for the
-// AI Usage dashboard. Thinking tokens are billed as output.
 const PRICING = {
   'gemini-2.5-flash': { in: 0.3, out: 2.5 },
   'gemini-2.5-flash-lite': { in: 0.1, out: 0.4 },
@@ -102,7 +118,6 @@ function buildBody({ systemInstruction, contents, level, mode }) {
   return body;
 }
 
-// Build the ordered fallback chain (README: thinking+search -> search-only -> plain).
 function buildLevels(webGrounding, thinking) {
   const levels = [];
   if (webGrounding) {
@@ -163,7 +178,6 @@ async function readErr(res) {
 
 // ------------------------------------------------------------
 // Streaming generation with graceful fallback.
-// Returns { text, thoughts, sources, queries, usage, model, grounded, thoughtful }.
 // ------------------------------------------------------------
 export async function streamGenerate({
   apiKey,
@@ -180,10 +194,10 @@ export async function streamGenerate({
   onText,
   onLevel,
 }) {
-  if (!apiKey && !USE_PROXY) throw new Error('Add your Gemini API key in Settings first.');
+  if (!apiKey && !USE_PROXY) {
+    throw new Error('Add your Gemini API key in Profile → AI Settings first.');
+  }
   const contentParts = parts || [{ text: userText || '' }];
-  // Multi-turn: a `messages` array ([{role:'user'|'model', text}]) becomes the
-  // full conversation; otherwise a single user turn is sent.
   const contents = Array.isArray(messages) && messages.length
     ? messages.map((m) => ({ role: m.role === 'model' ? 'model' : 'user', parts: [{ text: m.text }] }))
     : [{ role: 'user', parts: contentParts }];
@@ -204,9 +218,7 @@ export async function streamGenerate({
     }
     if (!res.ok || !res.body) {
       lastErr = await readErr(res);
-      // A rate-limit response won't improve on a lower tier — stop early.
       if (res.status === 429) break;
-      // Step down the fallback chain on tool/thinking rejection or other errors.
       continue;
     }
 
@@ -219,9 +231,9 @@ export async function streamGenerate({
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-     
+
+    // eslint-disable-next-line no-constant-condition
     while (true) {
-       
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
@@ -235,7 +247,7 @@ export async function streamGenerate({
         try {
           mergeChunk(JSON.parse(json), acc, { onThought, onText });
         } catch {
-          /* partial json across chunks — ignore, Gemini emits one json per data line */
+          /* partial json — ignore */
         }
       }
     }
@@ -255,7 +267,7 @@ export async function streamGenerate({
 }
 
 // ------------------------------------------------------------
-// Non-streaming generation (used by helpers: verifier, practice updates, etc.)
+// Non-streaming generation
 // ------------------------------------------------------------
 export async function generate({
   apiKey,
@@ -268,7 +280,9 @@ export async function generate({
   thinking = false,
   signal,
 }) {
-  if (!apiKey && !USE_PROXY) throw new Error('Add your Gemini API key in Settings first.');
+  if (!apiKey && !USE_PROXY) {
+    throw new Error('Add your Gemini API key in Profile → AI Settings first.');
+  }
   const contentParts = parts || [{ text: userText || '' }];
   const contents = [{ role: 'user', parts: contentParts }];
   const levels = buildLevels(webGrounding, thinking);
@@ -286,12 +300,10 @@ export async function generate({
       continue;
     }
     if (!res.ok) {
-       
       lastErr = await readErr(res);
       if (res.status === 429) break;
       continue;
     }
-     
     const data = await res.json();
     const acc = {
       text: '',
@@ -322,8 +334,7 @@ export async function generate({
 }
 
 // ------------------------------------------------------------
-// Quality gate — a silent self-critique. Returns true if the answer is weak
-// and should be regenerated under stricter instructions.
+// Quality gate
 // ------------------------------------------------------------
 export async function isWeakAnswer({ apiKey, model, question, answer, signal }) {
   try {
@@ -341,6 +352,6 @@ export async function isWeakAnswer({ apiKey, model, question, answer, signal }) 
     });
     return /\bWEAK\b/i.test(r.text);
   } catch {
-    return false; // never block on the gate
+    return false;
   }
 }
