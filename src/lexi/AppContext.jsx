@@ -3,13 +3,8 @@
 // ============================================================
 
 import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
+  createContext, useContext, useState, useEffect,
+  useRef, useCallback, useMemo,
 } from 'react';
 import { storage, STORAGE_KEYS } from './database.js';
 import { applyTheme } from './themes.js';
@@ -29,14 +24,24 @@ import { hashPasscode, verifyPasscode, evaluateLockout, registerFailure, resetLo
 
 const AppContext = createContext(null);
 
-// ---- Admin access control --------------------------------------------------
-// Only users whose Supabase email appears in this set gain admin rights.
-// In local-only mode (no Supabase) the single user is always treated as admin.
-// To add another admin, add their email here and redeploy.
-const ADMIN_EMAILS = new Set(['oyimstephenesq@gmail.com']);
+// ── Admin email list ─────────────────────────────────────────────────────────
+// Primary source: VITE_ADMIN_EMAIL build-time env var (set in Vercel → Settings
+// → Environment Variables). Supports multiple emails comma-separated:
+//   VITE_ADMIN_EMAIL=you@example.com,colleague@example.com
+// Falls back to the hardcoded address if the env var is absent.
+// In LOCAL mode (no Supabase) the single device user is always admin.
+const _rawAdminEmails =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADMIN_EMAIL) ||
+  'meetstephenoyim@gmail.com';
 
-// Workspace slices that sync to the cloud (excludes device-local settings and
-// the locally-stored API key).
+const ADMIN_EMAILS = new Set(
+  _rawAdminEmails
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+);
+
+// Workspace slices that sync to the cloud.
 const CLOUD_KEYS = [
   STORAGE_KEYS.CASES, STORAGE_KEYS.CLIENTS, STORAGE_KEYS.TASKS, STORAGE_KEYS.TIME_ENTRIES,
   STORAGE_KEYS.ANALYSES, STORAGE_KEYS.AI_HISTORY, STORAGE_KEYS.AI_USAGE, STORAGE_KEYS.TEMPLATES,
@@ -49,39 +54,24 @@ export const useApp = () => {
   return ctx;
 };
 
-// isAdmin is deliberately NOT in DEFAULT_PROFILE — it is a computed value
-// derived from the authenticated user's email, never stored or editable.
+// isAdmin is NOT in DEFAULT_PROFILE — it is computed from authenticated email.
 const DEFAULT_PROFILE = {
-  firmName: '',
-  lawyerName: '',
-  email: '',
-  phone: '',
-  address: '',
-  bankDetails: '',
-  letterheadFooter: '',
-  hourlyRate: FEE_DEFAULTS.hourlyRate,
-  currency: FEE_DEFAULTS.currency,
-  vatRate: FEE_DEFAULTS.vatRate,
-  whtRate: FEE_DEFAULTS.whtRate,
-  defaultCourt: 'High Court of a State',
-  defaultJurisdiction: 'Nigeria (Federal)',
-  monthlyAiBudget: 20,
-  notifyEmail: '',
-  reminderWindow: 7,
-  feedbackEmail: '',
-  aiPerMinute: RATE_DEFAULTS.perMinute,
-  aiPerDay: RATE_DEFAULTS.perDay,
+  firmName: '', lawyerName: '', email: '', phone: '',
+  address: '', bankDetails: '', letterheadFooter: '',
+  hourlyRate: FEE_DEFAULTS.hourlyRate, currency: FEE_DEFAULTS.currency,
+  vatRate: FEE_DEFAULTS.vatRate, whtRate: FEE_DEFAULTS.whtRate,
+  defaultCourt: 'High Court of a State', defaultJurisdiction: 'Nigeria (Federal)',
+  monthlyAiBudget: 20, notifyEmail: '', reminderWindow: 7, feedbackEmail: '',
+  aiPerMinute: RATE_DEFAULTS.perMinute, aiPerDay: RATE_DEFAULTS.perDay,
 };
 
-// Strip any stored isAdmin from a profile object so it cannot be used for
-// access-control decisions.
 function sanitiseProfile(raw = {}) {
   const { isAdmin: _removed, ...safe } = raw;
   return safe;
 }
 
 export function AppProvider({ children }) {
-  // ---- settings ----
+  // ── settings ──────────────────────────────────────────────────────────────
   const [isDark, setIsDark] = useState(() => storage.get(STORAGE_KEYS.THEME, true));
   const [apiKey, setApiKeyState] = useState(() => deobfuscate(storage.get(STORAGE_KEYS.API_KEY, '')));
   const [model, setModelState] = useState(() => storage.get(STORAGE_KEYS.MODEL, DEFAULT_MODEL));
@@ -91,66 +81,62 @@ export function AppProvider({ children }) {
     ...sanitiseProfile(storage.get(STORAGE_KEYS.PROFILE, {})),
   }));
 
-  // ---- navigation ----
+  // ── navigation ────────────────────────────────────────────────────────────
   const [activePage, setActivePage] = useState('home');
   const [pageParams, setPageParams] = useState({});
 
-  // ---- data ----
-  const [cases, setCases] = useState(() => storage.get(STORAGE_KEYS.CASES, []));
-  const [clients, setClients] = useState(() => storage.get(STORAGE_KEYS.CLIENTS, []));
-  const [tasks, setTasks] = useState(() => storage.get(STORAGE_KEYS.TASKS, []));
+  // ── data ──────────────────────────────────────────────────────────────────
+  const [cases, setCases]             = useState(() => storage.get(STORAGE_KEYS.CASES, []));
+  const [clients, setClients]         = useState(() => storage.get(STORAGE_KEYS.CLIENTS, []));
+  const [tasks, setTasks]             = useState(() => storage.get(STORAGE_KEYS.TASKS, []));
   const [timeEntries, setTimeEntries] = useState(() => storage.get(STORAGE_KEYS.TIME_ENTRIES, []));
-  const [analyses, setAnalyses] = useState(() => storage.get(STORAGE_KEYS.ANALYSES, []));
-  const [aiHistory, setAiHistory] = useState(() => storage.get(STORAGE_KEYS.AI_HISTORY, []));
-  const [aiUsage, setAiUsage] = useState(() => storage.get(STORAGE_KEYS.AI_USAGE, []));
-  const [templates, setTemplates] = useState(() => storage.get(STORAGE_KEYS.TEMPLATES, DEFAULT_TEMPLATES));
-  const [auditLog, setAuditLog] = useState(() => storage.get(STORAGE_KEYS.AUDIT_LOG, []));
+  const [analyses, setAnalyses]       = useState(() => storage.get(STORAGE_KEYS.ANALYSES, []));
+  const [aiHistory, setAiHistory]     = useState(() => storage.get(STORAGE_KEYS.AI_HISTORY, []));
+  const [aiUsage, setAiUsage]         = useState(() => storage.get(STORAGE_KEYS.AI_USAGE, []));
+  const [templates, setTemplates]     = useState(() => storage.get(STORAGE_KEYS.TEMPLATES, DEFAULT_TEMPLATES));
+  const [auditLog, setAuditLog]       = useState(() => storage.get(STORAGE_KEYS.AUDIT_LOG, []));
 
-  // ---- toasts ----
+  // ── toasts ────────────────────────────────────────────────────────────────
   const [toasts, setToasts] = useState([]);
 
-  // ---- auth / cloud sync (Supabase) ----
-  const [user, setUser] = useState(null);
+  // ── auth / cloud sync ─────────────────────────────────────────────────────
+  const [user, setUser]               = useState(null);
   const [authLoading, setAuthLoading] = useState(SUPABASE_ENABLED);
   const [cloudStatus, setCloudStatus] = useState('idle');
-  const [recovery, setRecovery] = useState(false);
+  const [recovery, setRecovery]       = useState(false);
   const syncReadyRef = useRef(false);
   const saveTimerRef = useRef(null);
 
-  // ---- local passcode lock ----
+  // ── device passcode ───────────────────────────────────────────────────────
   const [lockEnabled, setLockEnabled] = useState(() => !!storage.get(STORAGE_KEYS.APP_LOCK, null));
-  const [unlocked, setUnlocked] = useState(() => {
+  const [unlocked, setUnlocked]       = useState(() => {
     if (!storage.get(STORAGE_KEYS.APP_LOCK, null)) return true;
     try { return sessionStorage.getItem('lexi2:session-unlocked') === '1'; } catch { return false; }
   });
 
-  // ---- computed admin status (never stored, always derived from auth) ----
-  // In Supabase mode: true only if the signed-in user's email is in ADMIN_EMAILS.
-  // In local-only mode: single-user install is always treated as admin.
+  // ── computed admin status ─────────────────────────────────────────────────
+  // Derived from authenticated user email — never from stored profile.
+  // In local mode (no Supabase) the single device user is always admin.
   const isAdmin = useMemo(() => {
     if (SUPABASE_ENABLED) {
       return !!user && ADMIN_EMAILS.has((user.email || '').toLowerCase());
     }
-    return true; // local single-user install
+    return true;
   }, [user]);
 
-  // ---- effects: theme + persistence ----
-  useEffect(() => {
-    applyTheme(isDark);
-    storage.set(STORAGE_KEYS.THEME, isDark);
-  }, [isDark]);
+  // ── persistence effects ───────────────────────────────────────────────────
+  useEffect(() => { applyTheme(isDark); storage.set(STORAGE_KEYS.THEME, isDark); }, [isDark]);
+  useEffect(() => storage.set(STORAGE_KEYS.CASES,        cases),                  [cases]);
+  useEffect(() => storage.set(STORAGE_KEYS.CLIENTS,      clients),                [clients]);
+  useEffect(() => storage.set(STORAGE_KEYS.TASKS,        tasks),                  [tasks]);
+  useEffect(() => storage.set(STORAGE_KEYS.TIME_ENTRIES, timeEntries),            [timeEntries]);
+  useEffect(() => storage.set(STORAGE_KEYS.ANALYSES,     analyses),               [analyses]);
+  useEffect(() => storage.set(STORAGE_KEYS.AI_HISTORY,   aiHistory.slice(-100)),  [aiHistory]);
+  useEffect(() => storage.set(STORAGE_KEYS.AI_USAGE,     aiUsage.slice(-1000)),   [aiUsage]);
+  useEffect(() => storage.set(STORAGE_KEYS.TEMPLATES,    templates),              [templates]);
+  useEffect(() => storage.set(STORAGE_KEYS.AUDIT_LOG,    auditLog),               [auditLog]);
 
-  useEffect(() => storage.set(STORAGE_KEYS.CASES, cases), [cases]);
-  useEffect(() => storage.set(STORAGE_KEYS.CLIENTS, clients), [clients]);
-  useEffect(() => storage.set(STORAGE_KEYS.TASKS, tasks), [tasks]);
-  useEffect(() => storage.set(STORAGE_KEYS.TIME_ENTRIES, timeEntries), [timeEntries]);
-  useEffect(() => storage.set(STORAGE_KEYS.ANALYSES, analyses), [analyses]);
-  useEffect(() => storage.set(STORAGE_KEYS.AI_HISTORY, aiHistory.slice(-100)), [aiHistory]);
-  useEffect(() => storage.set(STORAGE_KEYS.AI_USAGE, aiUsage.slice(-1000)), [aiUsage]);
-  useEffect(() => storage.set(STORAGE_KEYS.TEMPLATES, templates), [templates]);
-  useEffect(() => storage.set(STORAGE_KEYS.AUDIT_LOG, auditLog), [auditLog]);
-
-  // ---- toast helpers ----
+  // ── toast helpers ─────────────────────────────────────────────────────────
   const showToast = useCallback((type, message) => {
     const id = generateId();
     setToasts((prev) => [...prev, { id, type, message }]);
@@ -158,12 +144,12 @@ export function AppProvider({ children }) {
   }, []);
   const removeToast = useCallback((id) => setToasts((prev) => prev.filter((t) => t.id !== id)), []);
 
-  // ---- audit ----
+  // ── audit ─────────────────────────────────────────────────────────────────
   const audit = useCallback((type, detail = '') => {
     setAuditLog((prev) => appendAudit(prev, type, detail));
   }, []);
 
-  // ---- settings setters ----
+  // ── settings setters ──────────────────────────────────────────────────────
   const setApiKey = useCallback((key) => {
     setApiKeyState(key);
     storage.set(STORAGE_KEYS.API_KEY, obfuscate(key));
@@ -177,12 +163,10 @@ export function AppProvider({ children }) {
     storage.set(STORAGE_KEYS.WEB_GROUNDING, v);
   }, []);
 
-  // setProfile deliberately strips any isAdmin field — admin status is computed
-  // from the authenticated user's email and must never be set via profile.
+  // setProfile strips isAdmin — admin status is computed from auth, not stored.
   const setProfile = useCallback((patch) => {
     setProfileState((prev) => {
-      const safePatch = sanitiseProfile(patch);
-      const next = { ...prev, ...safePatch };
+      const next = { ...prev, ...sanitiseProfile(patch) };
       storage.set(STORAGE_KEYS.PROFILE, next);
       return next;
     });
@@ -196,14 +180,13 @@ export function AppProvider({ children }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // ---- AI usage recording ----
+  // ── AI usage recording ────────────────────────────────────────────────────
   const recordUsage = useCallback((feature, { model: m, usage, grounded }) => {
     if (!usage) return;
-    const rec = buildUsageRecord({ model: m, usage, feature, grounded });
-    setAiUsage((prev) => [...prev, rec]);
+    setAiUsage((prev) => [...prev, buildUsageRecord({ model: m, usage, feature, grounded })]);
   }, []);
 
-  // ---- cases ----
+  // ── cases ─────────────────────────────────────────────────────────────────
   const addCase = useCallback((data) => {
     const item = { ...data, id: generateId(), createdAt: new Date().toISOString(), hearings: data.hearings || [] };
     setCases((prev) => [...prev, item]);
@@ -211,7 +194,7 @@ export function AppProvider({ children }) {
     return item;
   }, [audit]);
   const updateCase = useCallback((id, patch) => {
-    setCases((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c)));
+    setCases((prev) => prev.map((c) => c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c));
     audit('CASE_UPDATE', id);
   }, [audit]);
   const deleteCase = useCallback((id) => {
@@ -219,7 +202,7 @@ export function AppProvider({ children }) {
     audit('CASE_DELETE', id);
   }, [audit]);
 
-  // ---- clients ----
+  // ── clients ───────────────────────────────────────────────────────────────
   const addClient = useCallback((data) => {
     const item = { ...data, id: generateId(), createdAt: new Date().toISOString() };
     setClients((prev) => [...prev, item]);
@@ -227,7 +210,7 @@ export function AppProvider({ children }) {
     return item;
   }, [audit]);
   const updateClient = useCallback((id, patch) => {
-    setClients((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    setClients((prev) => prev.map((c) => c.id === id ? { ...c, ...patch } : c));
   }, []);
   const deleteClient = useCallback((id) => {
     setClients((prev) => prev.filter((c) => c.id !== id));
@@ -235,7 +218,7 @@ export function AppProvider({ children }) {
   }, [audit]);
   const getClientName = useCallback((id) => clients.find((c) => c.id === id)?.name || 'Unassigned', [clients]);
 
-  // ---- tasks ----
+  // ── tasks ─────────────────────────────────────────────────────────────────
   const addTask = useCallback((data) => {
     const item = { ...data, id: generateId(), createdAt: new Date().toISOString(), status: data.status || 'todo' };
     setTasks((prev) => [...prev, item]);
@@ -243,21 +226,21 @@ export function AppProvider({ children }) {
     return item;
   }, [audit]);
   const updateTask = useCallback((id, patch) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, ...patch } : t));
     audit('TASK_UPDATE', id);
   }, [audit]);
   const deleteTask = useCallback((id) => setTasks((prev) => prev.filter((t) => t.id !== id)), []);
 
-  // ---- time entries ----
+  // ── time entries ──────────────────────────────────────────────────────────
   const addTimeEntry = useCallback((data) => {
     const amount = (Number(data.hours) || 0) * (Number(data.rate) || 0);
-    const item = { ...data, amount, id: generateId(), createdAt: new Date().toISOString() };
+    const item   = { ...data, amount, id: generateId(), createdAt: new Date().toISOString() };
     setTimeEntries((prev) => [...prev, item]);
     return item;
   }, []);
   const deleteTimeEntry = useCallback((id) => setTimeEntries((prev) => prev.filter((e) => e.id !== id)), []);
 
-  // ---- analyses ----
+  // ── analyses ──────────────────────────────────────────────────────────────
   const saveAnalysis = useCallback((data) => {
     const item = { ...data, id: generateId(), createdAt: new Date().toISOString() };
     setAnalyses((prev) => [...prev, item]);
@@ -266,22 +249,17 @@ export function AppProvider({ children }) {
   }, [audit]);
   const deleteAnalysis = useCallback((id) => setAnalyses((prev) => prev.filter((a) => a.id !== id)), []);
 
-  // ---- ai history ----
+  // ── ai history ────────────────────────────────────────────────────────────
   const pushHistory = useCallback((entry) => {
     setAiHistory((prev) => [...prev, { ...entry, id: generateId(), ts: new Date().toISOString() }]);
   }, []);
 
-  // ---- templates ----
-  const addTemplate = useCallback((data) => {
-    setTemplates((prev) => [...prev, { ...data, id: generateId() }]);
-  }, []);
-  const deleteTemplate = useCallback((id) => setTemplates((prev) => prev.filter((t) => t.id !== id)), []);
+  // ── templates ─────────────────────────────────────────────────────────────
+  const addTemplate    = useCallback((data) => { setTemplates((prev) => [...prev, { ...data, id: generateId() }]); }, []);
+  const deleteTemplate = useCallback((id)  => { setTemplates((prev) => prev.filter((t) => t.id !== id));          }, []);
 
-  // ---- backup / restore ----
-  const exportBackup = useCallback(() => {
-    audit('BACKUP', 'export');
-    return storage.exportAll();
-  }, [audit]);
+  // ── backup / restore ──────────────────────────────────────────────────────
+  const exportBackup = useCallback(() => { audit('BACKUP', 'export'); return storage.exportAll(); }, [audit]);
   const importBackup = useCallback((obj) => {
     storage.importAll(obj);
     setCases(storage.get(STORAGE_KEYS.CASES, []));
@@ -294,7 +272,7 @@ export function AppProvider({ children }) {
     audit('BACKUP', 'restore');
   }, [audit]);
 
-  // ---- cloud sync helpers ----
+  // ── cloud sync helpers ────────────────────────────────────────────────────
   const rehydrateFromStorage = useCallback(() => {
     setCases(storage.get(STORAGE_KEYS.CASES, []));
     setClients(storage.get(STORAGE_KEYS.CLIENTS, []));
@@ -305,11 +283,7 @@ export function AppProvider({ children }) {
     setAiUsage(storage.get(STORAGE_KEYS.AI_USAGE, []));
     setTemplates(storage.get(STORAGE_KEYS.TEMPLATES, DEFAULT_TEMPLATES));
     setAuditLog(storage.get(STORAGE_KEYS.AUDIT_LOG, []));
-    // Strip any stored isAdmin — admin status is always computed from auth
-    setProfileState({
-      ...DEFAULT_PROFILE,
-      ...sanitiseProfile(storage.get(STORAGE_KEYS.PROFILE, {})),
-    });
+    setProfileState({ ...DEFAULT_PROFILE, ...sanitiseProfile(storage.get(STORAGE_KEYS.PROFILE, {})) });
   }, []);
 
   const resetLocalData = useCallback(() => {
@@ -323,7 +297,7 @@ export function AppProvider({ children }) {
     setProfileState(DEFAULT_PROFILE);
   }, []);
 
-  // Initialise auth (only when Supabase is configured).
+  // ── initialise Supabase auth ──────────────────────────────────────────────
   useEffect(() => {
     if (!SUPABASE_ENABLED) return undefined;
     let active = true;
@@ -331,9 +305,7 @@ export function AppProvider({ children }) {
       try {
         const u = await getSessionUser();
         if (active) setUser(u);
-      } catch {
-        /* ignore */
-      } finally {
+      } catch { /* ignore */ } finally {
         if (active) setAuthLoading(false);
       }
     })();
@@ -347,14 +319,10 @@ export function AppProvider({ children }) {
       }
     };
     document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      active = false;
-      unsub();
-      document.removeEventListener('visibilitychange', onVisible);
-    };
+    return () => { active = false; unsub(); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
-  // On sign-in pull the user's workspace; on sign-out clear local data.
+  // ── on sign-in: pull workspace; on sign-out: clear ────────────────────────
   useEffect(() => {
     if (!SUPABASE_ENABLED) return undefined;
     let cancelled = false;
@@ -384,7 +352,7 @@ export function AppProvider({ children }) {
     return () => { cancelled = true; };
   }, [user, rehydrateFromStorage, resetLocalData]);
 
-  // Debounced push of the workspace to the cloud whenever data changes.
+  // ── debounced cloud save ──────────────────────────────────────────────────
   useEffect(() => {
     if (!SUPABASE_ENABLED || !user || !syncReadyRef.current) return undefined;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -392,57 +360,35 @@ export function AppProvider({ children }) {
       try {
         setCloudStatus('syncing');
         const payload = {};
-        CLOUD_KEYS.forEach((k) => {
-          const v = storage.get(k, null);
-          if (v !== null) payload[k] = v;
-        });
+        CLOUD_KEYS.forEach((k) => { const v = storage.get(k, null); if (v !== null) payload[k] = v; });
         await saveWorkspace(user.id, payload);
         setCloudStatus('synced');
-      } catch {
-        setCloudStatus('error');
-      }
+      } catch { setCloudStatus('error'); }
     }, 1500);
     return () => clearTimeout(saveTimerRef.current);
   }, [user, cases, clients, tasks, timeEntries, analyses, aiHistory, aiUsage, templates, auditLog, profile]);
 
-  // ---- auth actions ----
-  const signIn = useCallback(async (email, password) => {
-    const u = await signInWithPassword(email, password);
-    setUser(u);
-    return u;
-  }, []);
-  const signUp = useCallback((email, password) => signUpWithPassword(email, password), []);
+  // ── auth actions ──────────────────────────────────────────────────────────
+  const signIn  = useCallback(async (email, password) => { const u = await signInWithPassword(email, password); setUser(u); return u; }, []);
+  const signUp  = useCallback((email, password) => signUpWithPassword(email, password), []);
   const magicLink = useCallback((email) => signInWithMagicLink(email), []);
-  const doSignOut = useCallback(async () => {
-    await sbSignOut();
-    setUser(null);
-    audit('LOGOUT', '');
-  }, [audit]);
+  const doSignOut = useCallback(async () => { await sbSignOut(); setUser(null); audit('LOGOUT', ''); }, [audit]);
   const requestPasswordReset = useCallback((email) => sendPasswordReset(email), []);
   const changePassword = useCallback(async (newPassword) => {
     await sbUpdatePassword(newPassword);
     setRecovery(false);
-    // Clear the recovery hash from the URL so refreshing the page does not
-    // re-fire the PASSWORD_RECOVERY auth event.
     if (typeof window !== 'undefined' && window.history) {
       window.history.replaceState({}, '', window.location.pathname + window.location.search);
     }
   }, []);
 
-  // ---- local passcode lock actions ----
+  // ── passcode lock ─────────────────────────────────────────────────────────
   const unlockWithPasscode = useCallback(async (pin) => {
     const lockState = storage.get(STORAGE_KEYS.APP_LOCK_ATTEMPTS, { attempts: 0, lockedUntil: 0 });
-    const status = evaluateLockout(lockState);
-    if (status.locked) {
-      return { ok: false, locked: true, remainingMs: status.remainingMs };
-    }
+    const status    = evaluateLockout(lockState);
+    if (status.locked) return { ok: false, locked: true, remainingMs: status.remainingMs };
     const record = storage.get(STORAGE_KEYS.APP_LOCK, null);
-    let ok = false;
-    if (record && record.isDefault) {
-      ok = pin === 'admin';
-    } else {
-      ok = await verifyPasscode(pin, record);
-    }
+    const ok     = record?.isDefault ? pin === 'admin' : await verifyPasscode(pin, record);
     if (ok) {
       storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, resetLockout());
       setUnlocked(true);
@@ -460,8 +406,7 @@ export function AppProvider({ children }) {
     const record = await hashPasscode(pin);
     storage.set(STORAGE_KEYS.APP_LOCK, record);
     storage.set(STORAGE_KEYS.APP_LOCK_ATTEMPTS, resetLockout());
-    setLockEnabled(true);
-    setUnlocked(true);
+    setLockEnabled(true); setUnlocked(true);
     try { sessionStorage.setItem('lexi2:session-unlocked', '1'); } catch { /* ignore */ }
     audit('SETTINGS_UPDATE', 'passcode-set');
   }, [audit]);
@@ -469,8 +414,7 @@ export function AppProvider({ children }) {
   const clearPasscode = useCallback(() => {
     storage.remove(STORAGE_KEYS.APP_LOCK);
     storage.remove(STORAGE_KEYS.APP_LOCK_ATTEMPTS);
-    setLockEnabled(false);
-    setUnlocked(true);
+    setLockEnabled(false); setUnlocked(true);
     audit('SETTINGS_UPDATE', 'passcode-cleared');
   }, [audit]);
 
@@ -481,83 +425,70 @@ export function AppProvider({ children }) {
     }
   }, [lockEnabled]);
 
-  // ---- AI rate-limit guard ----
+  // ── AI rate-limit guard ───────────────────────────────────────────────────
   const guardAi = useCallback(() => {
-    const now = Date.now();
+    const now   = Date.now();
     const times = prune(storage.get('ai-call-times', []), now);
-    const res = evaluateRateLimit(times, {
+    const res   = evaluateRateLimit(times, {
       perMinute: Number(profile.aiPerMinute) || RATE_DEFAULTS.perMinute,
-      perDay: Number(profile.aiPerDay) || RATE_DEFAULTS.perDay,
+      perDay:    Number(profile.aiPerDay)    || RATE_DEFAULTS.perDay,
       now,
     });
-    if (!res.allowed) {
-      showToast('warning', res.reason);
-      return false;
-    }
+    if (!res.allowed) { showToast('warning', res.reason); return false; }
     storage.set('ai-call-times', [...times, now]);
     return true;
   }, [profile, showToast]);
 
-  const value = useMemo(
-    () => ({
-      // settings
-      isDark, toggleTheme, apiKey, setApiKey, model, setModel,
-      webGrounding, setWebGrounding, profile, setProfile,
-      // admin status — computed from authenticated user's email, never stored
-      isAdmin,
-      // AI ready:
-      //   Admin → proxy (server key) OR personal key
-      //   Non-admin → personal key only (they must enter their own Gemini key)
-      aiReady: isAdmin ? (USE_PROXY || !!apiKey) : !!apiKey,
-      useProxy: USE_PROXY,
-      // auth / cloud sync
-      supabaseEnabled: SUPABASE_ENABLED,
-      user,
-      authLoading,
-      cloudStatus,
-      isAuthed: !SUPABASE_ENABLED || !!user,
-      recovery,
-      signIn, signUp, magicLink, signOut: doSignOut,
-      requestPasswordReset, changePassword,
-      // local passcode lock
-      lockEnabled, unlocked, isLocked: lockEnabled && !unlocked,
-      unlockWithPasscode, setPasscode, clearPasscode, lockNow,
-      // AI rate-limit guard
-      guardAi,
-      // nav
-      activePage, pageParams, navigate,
-      // data
-      cases, addCase, updateCase, deleteCase,
-      clients, addClient, updateClient, deleteClient, getClientName,
-      tasks, addTask, updateTask, deleteTask,
-      timeEntries, addTimeEntry, deleteTimeEntry,
-      analyses, saveAnalysis, deleteAnalysis,
-      aiHistory, pushHistory,
-      aiUsage, recordUsage, setAiUsage,
-      templates, addTemplate, deleteTemplate,
-      auditLog, audit,
-      // toast
-      toasts, showToast, removeToast,
-      // backup
-      exportBackup, importBackup,
-    }),
-    [
-      isDark, toggleTheme, apiKey, setApiKey, model, setModel, webGrounding, setWebGrounding,
-      profile, setProfile, isAdmin, activePage, pageParams, navigate,
-      cases, addCase, updateCase, deleteCase,
-      clients, addClient, updateClient, deleteClient, getClientName,
-      tasks, addTask, updateTask, deleteTask,
-      timeEntries, addTimeEntry, deleteTimeEntry,
-      analyses, saveAnalysis, deleteAnalysis,
-      aiHistory, pushHistory, aiUsage, recordUsage,
-      templates, addTemplate, deleteTemplate,
-      auditLog, audit, toasts, showToast, removeToast,
-      exportBackup, importBackup,
-      user, authLoading, cloudStatus, recovery, signIn, signUp, magicLink, doSignOut,
-      requestPasswordReset, changePassword,
-      lockEnabled, unlocked, unlockWithPasscode, setPasscode, clearPasscode, lockNow, guardAi,
-    ]
-  );
+  // ── context value ─────────────────────────────────────────────────────────
+  const value = useMemo(() => ({
+    isDark, toggleTheme, apiKey, setApiKey, model, setModel,
+    webGrounding, setWebGrounding, profile, setProfile,
+    // Admin status — computed from authenticated email, never stored.
+    // Also exposed so pages can read authLoading before acting on isAdmin.
+    isAdmin, authLoading,
+    // AI ready: admin can use proxy (server key); non-admin needs own key.
+    // If the server proxy is configured (VITE_USE_PROXY=true in Vercel), everyone
+    // is AI-ready and the admin needs no personal key whatsoever.
+    // Non-admin users with a personal key bypass the proxy automatically.
+    aiReady: USE_PROXY || !!apiKey,
+    useProxy: USE_PROXY,
+    supabaseEnabled: SUPABASE_ENABLED,
+    user, cloudStatus, isAuthed: !SUPABASE_ENABLED || !!user,
+    recovery, signIn, signUp, magicLink, signOut: doSignOut,
+    requestPasswordReset, changePassword,
+    lockEnabled, unlocked, isLocked: lockEnabled && !unlocked,
+    unlockWithPasscode, setPasscode, clearPasscode, lockNow,
+    guardAi,
+    activePage, pageParams, navigate,
+    cases, addCase, updateCase, deleteCase,
+    clients, addClient, updateClient, deleteClient, getClientName,
+    tasks, addTask, updateTask, deleteTask,
+    timeEntries, addTimeEntry, deleteTimeEntry,
+    analyses, saveAnalysis, deleteAnalysis,
+    aiHistory, pushHistory,
+    aiUsage, recordUsage, setAiUsage,
+    templates, addTemplate, deleteTemplate,
+    auditLog, audit,
+    toasts, showToast, removeToast,
+    exportBackup, importBackup,
+  }), [
+    isDark, toggleTheme, apiKey, setApiKey, model, setModel,
+    webGrounding, setWebGrounding, profile, setProfile,
+    isAdmin, authLoading,
+    user, cloudStatus, recovery, signIn, signUp, magicLink, doSignOut,
+    requestPasswordReset, changePassword,
+    lockEnabled, unlocked, unlockWithPasscode, setPasscode, clearPasscode, lockNow,
+    guardAi, activePage, pageParams, navigate,
+    cases, addCase, updateCase, deleteCase,
+    clients, addClient, updateClient, deleteClient, getClientName,
+    tasks, addTask, updateTask, deleteTask,
+    timeEntries, addTimeEntry, deleteTimeEntry,
+    analyses, saveAnalysis, deleteAnalysis,
+    aiHistory, pushHistory, aiUsage, recordUsage,
+    templates, addTemplate, deleteTemplate,
+    auditLog, audit, toasts, showToast, removeToast,
+    exportBackup, importBackup,
+  ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
