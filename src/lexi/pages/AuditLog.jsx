@@ -1,9 +1,9 @@
 // ============================================================
-// lexi/pages/AuditLog.jsx — hash-chained audit log viewer (admin only)
+// lexi/pages/AuditLog.jsx — hash-chained audit log (admin only)
 // ============================================================
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { History, Download, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { History, Download, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { AUDIT_EVENTS, verifyAuditChain, toCsv } from '../helpers.js';
 import { Card, Select, EmptyState, PageHeader } from '../components/ui.jsx';
@@ -20,25 +20,36 @@ const COLOR = {
 };
 
 export function AuditLog() {
-  const { auditLog, showToast, isAdmin, navigate } = useApp();
-
-  // Hard guard — redirect any non-admin who somehow reaches this page.
-  // isAdmin is computed from the authenticated user's email in AppContext
-  // and cannot be spoofed via localStorage or profile edits.
-  useEffect(() => {
-    if (!isAdmin) {
-      showToast('warning', 'Access denied — admin only.');
-      navigate('home');
-    }
-  }, [isAdmin, navigate, showToast]);
+  const { auditLog, showToast, isAdmin, authLoading, navigate } = useApp();
 
   const [filter, setFilter] = useState('all');
 
   const chain    = useMemo(() => verifyAuditChain(auditLog), [auditLog]);
-  const filtered = filter === 'all'
-    ? auditLog
-    : auditLog.filter((e) => e.type === filter);
+  const filtered = useMemo(
+    () => filter === 'all' ? auditLog : auditLog.filter((e) => e.type === filter),
+    [auditLog, filter]
+  );
 
+  // ── Auth guard ──────────────────────────────────────────────────────────
+  // Wait for Supabase session to confirm before redirecting.
+  // Without the authLoading check this fires while isAdmin is still false
+  // (before the session resolves) and kicks the admin to the home page.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAdmin) {
+      showToast('warning', 'Access denied — admin only.');
+      navigate('home');
+    }
+  }, [authLoading, isAdmin, navigate, showToast]);
+
+  // Show spinner while session resolves.
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      </div>
+    );
+  }
   if (!isAdmin) return null;
 
   const exportCsv = () => {
@@ -66,14 +77,11 @@ export function AuditLog() {
       {/* Chain integrity indicator */}
       <Card
         variant={chain.ok ? 'flat' : 'glass'}
-        className={cn(
-          'flex items-center gap-3',
-          !chain.ok && 'border-red-300 dark:border-red-800'
-        )}
+        className={cn('flex items-center gap-3', !chain.ok && 'border-red-300 dark:border-red-800')}
       >
         {chain.ok
           ? <ShieldCheck className="w-5 h-5 text-emerald-500" />
-          : <ShieldAlert  className="w-5 h-5 text-red-500"     />}
+          : <ShieldAlert  className="w-5 h-5 text-red-500" />}
         <span className="text-sm">
           {chain.ok
             ? `Chain intact — ${auditLog.length} event(s) verified.`
@@ -88,7 +96,7 @@ export function AuditLog() {
             onChange={(e) => setFilter(e.target.value)}
             className="max-w-xs"
             options={[
-              { value: 'all', label: 'All events' },
+              { value: 'all', label: `All events (${auditLog.length})` },
               ...Object.entries(AUDIT_EVENTS).map(([k, v]) => ({ value: k, label: v.label })),
             ]}
           />
@@ -96,7 +104,7 @@ export function AuditLog() {
             onClick={exportCsv}
             className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
-            <Download className="w-4 h-4" /> CSV
+            <Download className="w-4 h-4" /> Export CSV
           </button>
         </div>
 
@@ -104,7 +112,7 @@ export function AuditLog() {
           <EmptyState
             icon={History}
             title="No audit events"
-            description="Activity (AI queries, edits, exports, settings changes) is recorded here automatically."
+            description="AI queries, edits, exports and settings changes are recorded here automatically."
           />
         ) : (
           <div className="max-h-[60vh] overflow-y-auto thin-scrollbar">
@@ -126,11 +134,11 @@ export function AuditLog() {
                         {formatDateTime(e.ts)}
                       </td>
                       <td className="pr-3">
-                        <span className={cn('font-medium', COLOR[meta.color])}>
+                        <span className={cn('font-medium', COLOR[meta.color] || COLOR.slate)}>
                           {meta.label}
                         </span>
                       </td>
-                      <td className="pr-3 text-slate-500">{e.detail}</td>
+                      <td className="pr-3 text-slate-500 max-w-xs truncate">{e.detail}</td>
                       <td className="text-slate-300 dark:text-slate-600 font-mono text-xs">
                         {e.hash?.slice(0, 10)}…
                       </td>
