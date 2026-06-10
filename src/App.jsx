@@ -33,6 +33,7 @@ import { Help, Privacy, Terms } from './lexi/pages/InfoPages.jsx';
 import { Admin } from './lexi/pages/Admin.jsx';
 import { AuditLog } from './lexi/pages/AuditLog.jsx';
 import { Feedback } from './lexi/pages/Feedback.jsx';
+import { CourtDiary } from './lexi/pages/CourtDiary.jsx';  // ← NEW
 
 const PAGES = {
   home: Home,
@@ -61,6 +62,7 @@ const PAGES = {
   audit: AuditLog,
   admin: Admin,
   feedback: Feedback,
+  'court-diary': CourtDiary,  // ← NEW
 };
 
 function Router() {
