@@ -9,27 +9,32 @@ import { estimateCost } from './ai.js';
 import { CONVEYANCING_SCALE } from './legalData.js';
 
 // ---- Hash-chained audit log -------------------------------------------------
-// 17 event types, colour-coded in the viewer, chained so that retroactive
+// 21 event types, colour-coded in the viewer, chained so that retroactive
 // tampering is detectable. Chain uses cyrb53 (fast, non-cryptographic) — strong
 // enough to detect casual edits; swap for Web Crypto SHA-256 for a hardened build.
 export const AUDIT_EVENTS = {
-  LOGIN: { label: 'Login', color: 'emerald' },
-  LOGIN_FAILED: { label: 'Login failed', color: 'red' },
-  LOGOUT: { label: 'Logout', color: 'slate' },
-  AI_QUERY: { label: 'AI query', color: 'blue' },
-  AI_VERIFY: { label: 'Citation verify', color: 'violet' },
-  DOC_UPLOAD: { label: 'Document upload', color: 'cyan' },
-  EXPORT: { label: 'Export', color: 'amber' },
-  CASE_CREATE: { label: 'Case created', color: 'emerald' },
-  CASE_UPDATE: { label: 'Case updated', color: 'blue' },
-  CASE_DELETE: { label: 'Case deleted', color: 'red' },
-  CLIENT_CREATE: { label: 'Client created', color: 'emerald' },
-  CLIENT_DELETE: { label: 'Client deleted', color: 'red' },
-  TASK_CREATE: { label: 'Task created', color: 'emerald' },
-  TASK_UPDATE: { label: 'Task updated', color: 'blue' },
-  ANALYSIS_SAVE: { label: 'Analysis saved', color: 'violet' },
-  SETTINGS_UPDATE: { label: 'Settings updated', color: 'amber' },
-  BACKUP: { label: 'Backup / restore', color: 'cyan' },
+  LOGIN:          { label: 'Login',              color: 'emerald' },
+  LOGIN_FAILED:   { label: 'Login failed',       color: 'red'     },
+  LOGOUT:         { label: 'Logout',             color: 'slate'   },
+  AI_QUERY:       { label: 'AI query',           color: 'blue'    },
+  AI_VERIFY:      { label: 'Citation verify',    color: 'violet'  },
+  DOC_UPLOAD:     { label: 'Document upload',    color: 'cyan'    },
+  EXPORT:         { label: 'Export',             color: 'amber'   },
+  CASE_CREATE:    { label: 'Case created',       color: 'emerald' },
+  CASE_UPDATE:    { label: 'Case updated',       color: 'blue'    },
+  CASE_DELETE:    { label: 'Case deleted',       color: 'red'     },
+  CLIENT_CREATE:  { label: 'Client created',     color: 'emerald' },
+  CLIENT_DELETE:  { label: 'Client deleted',     color: 'red'     },
+  TASK_CREATE:    { label: 'Task created',       color: 'emerald' },
+  TASK_UPDATE:    { label: 'Task updated',       color: 'blue'    },
+  ANALYSIS_SAVE:  { label: 'Analysis saved',     color: 'violet'  },
+  SETTINGS_UPDATE:{ label: 'Settings updated',   color: 'amber'   },
+  BACKUP:         { label: 'Backup / restore',   color: 'cyan'    },
+  // Court Diary — added for CourtDiary module
+  DIARY_ADD:      { label: 'Matter added',       color: 'emerald' }, // ← NEW
+  DIARY_UPDATE:   { label: 'Matter updated',     color: 'blue'    }, // ← NEW
+  DIARY_DELETE:   { label: 'Matter deleted',     color: 'red'     }, // ← NEW
+  DIARY_ADJOURN:  { label: 'Hearing adjourned',  color: 'amber'   }, // ← NEW
 };
 
 export function cyrb53(str, seed = 0) {
@@ -119,9 +124,9 @@ export function conveyancingFee(consideration = 0) {
 
 // ---- AI usage record --------------------------------------------------------
 export function buildUsageRecord({ model, usage, feature, grounded }) {
-  const promptTokens = usage?.promptTokenCount || 0;
-  const outputTokens = usage?.candidatesTokenCount || 0;
-  const thoughtTokens = usage?.thoughtsTokenCount || 0;
+  const promptTokens  = usage?.promptTokenCount    || 0;
+  const outputTokens  = usage?.candidatesTokenCount || 0;
+  const thoughtTokens = usage?.thoughtsTokenCount   || 0;
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     ts: new Date().toISOString(),
@@ -137,29 +142,23 @@ export function buildUsageRecord({ model, usage, feature, grounded }) {
 }
 
 export function summariseUsage(records = []) {
-  const now = new Date();
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const now        = new Date();
+  const startOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const acc = { today: 0, month: 0, all: 0, todayCost: 0, monthCost: 0, allCost: 0, calls: records.length };
   records.forEach((r) => {
     const t = new Date(r.ts).getTime();
-    acc.all += r.totalTokens;
+    acc.all     += r.totalTokens;
     acc.allCost += r.cost;
-    if (t >= startOfMonth) {
-      acc.month += r.totalTokens;
-      acc.monthCost += r.cost;
-    }
-    if (t >= startOfDay) {
-      acc.today += r.totalTokens;
-      acc.todayCost += r.cost;
-    }
+    if (t >= startOfMonth) { acc.month     += r.totalTokens; acc.monthCost += r.cost; }
+    if (t >= startOfDay)   { acc.today     += r.totalTokens; acc.todayCost += r.cost; }
   });
   return acc;
 }
 
 // ---- CSV --------------------------------------------------------------------
 export function toCsv(rows, headers) {
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const esc  = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const head = headers.map((h) => esc(h.label)).join(',');
   const body = rows
     .map((r) => headers.map((h) => esc(typeof h.get === 'function' ? h.get(r) : r[h.key])).join(','))
