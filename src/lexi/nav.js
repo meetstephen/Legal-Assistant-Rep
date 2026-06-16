@@ -7,6 +7,7 @@ import {
   ShieldAlert, Users, Calculator, Wrench, Newspaper, ShieldCheck, UserCheck,
   Handshake, FileSearch, Files, Search, User, HelpCircle, Lock, FileText,
   Shield, History, MessageCircle, MessageSquarePlus, CalendarDays,
+  Star, Building2,
 } from 'lucide-react';
 
 export const NAV_SECTIONS = [
@@ -24,7 +25,7 @@ export const NAV_SECTIONS = [
     title: '📁 Matters',
     items: [
       { id: 'cases',       label: 'Cases',        icon: FolderOpen,   badge: 'cases'   },
-      { id: 'court-diary', label: 'Court Diary',  icon: CalendarDays                   }, // ← NEW
+      { id: 'court-diary', label: 'Court Diary',  icon: CalendarDays                   },
       { id: 'tasks',       label: 'Tasks',        icon: ListChecks,   badge: 'tasks'   },
       { id: 'pleadings',   label: 'Pleadings',    icon: ScrollText                     },
       { id: 'conflict',    label: 'Conflict Check', icon: ShieldAlert                  },
@@ -40,26 +41,28 @@ export const NAV_SECTIONS = [
   {
     title: '🔧 Tools',
     items: [
-      { id: 'tools',     label: 'Tools',             icon: Wrench      },
-      { id: 'updates',   label: 'Practice Updates',  icon: Newspaper   },
-      { id: 'authority', label: 'Authority Verify',  icon: ShieldCheck },
-      { id: 'witness',   label: 'Witness Prep',      icon: UserCheck   },
-      { id: 'settlement',label: 'Settlement',         icon: Handshake   },
-      { id: 'diligence', label: 'Due Diligence',      icon: FileSearch  },
-      { id: 'templates', label: 'Templates',          icon: Files       },
-      { id: 'search',    label: 'Search',             icon: Search      },
+      { id: 'tools',             label: 'Tools',             icon: Wrench      },
+      { id: 'updates',           label: 'Practice Updates',  icon: Newspaper   },
+      { id: 'authority',         label: 'Authority Verify',  icon: ShieldCheck },
+      { id: 'land-transactions', label: 'Land Transactions', icon: Building2   },
+      { id: 'witness',           label: 'Witness Prep',      icon: UserCheck   },
+      { id: 'settlement',        label: 'Settlement',         icon: Handshake   },
+      { id: 'diligence',         label: 'Due Diligence',      icon: FileSearch  },
+      { id: 'templates',         label: 'Templates',          icon: Files       },
+      { id: 'search',            label: 'Search',             icon: Search      },
     ],
   },
   {
     title: '👤 Account',
     items: [
-      { id: 'profile',  label: 'Profile',    icon: User              },
-      { id: 'feedback', label: 'Feedback',   icon: MessageSquarePlus },
-      { id: 'help',     label: 'Help',       icon: HelpCircle        },
-      { id: 'privacy',  label: 'Privacy',    icon: Lock              },
-      { id: 'terms',    label: 'Terms',      icon: FileText          },
-      { id: 'audit',    label: 'Audit Log',  icon: History,  adminOnly: true },
-      { id: 'admin',    label: 'Admin',      icon: Shield,   adminOnly: true },
+      { id: 'profile',        label: 'Profile',            icon: User              },
+      { id: 'nba-compliance', label: 'NBA Compliance',     icon: Star              },
+      { id: 'feedback',       label: 'Feedback',           icon: MessageSquarePlus },
+      { id: 'help',           label: 'Help',               icon: HelpCircle        },
+      { id: 'privacy',        label: 'Privacy',            icon: Lock              },
+      { id: 'terms',          label: 'Terms',              icon: FileText          },
+      { id: 'audit',          label: 'Audit Log',          icon: History,  adminOnly: true },
+      { id: 'admin',          label: 'Admin',              icon: Shield,   adminOnly: true },
     ],
   },
 ];
