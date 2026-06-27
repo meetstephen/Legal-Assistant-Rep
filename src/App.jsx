@@ -36,6 +36,7 @@ import { Feedback } from './lexi/pages/Feedback.jsx';
 import { CourtDiary } from './lexi/pages/CourtDiary.jsx';
 import { NbaCompliance } from './lexi/pages/NbaCompliance.jsx';
 import { LandTransactions } from './lexi/pages/LandTransactions.jsx';
+import { LegalSkill } from './lexi/pages/LegalSkill.jsx';
 
 const PAGES = {
   home: Home,
@@ -67,6 +68,7 @@ const PAGES = {
   'court-diary': CourtDiary,
   'nba-compliance': NbaCompliance,
   'land-transactions': LandTransactions,
+  'legal-skill': LegalSkill,
 };
 
 function Router() {
