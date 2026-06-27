@@ -7,7 +7,7 @@ import {
   ShieldAlert, Users, Calculator, Wrench, Newspaper, ShieldCheck, UserCheck,
   Handshake, FileSearch, Files, Search, User, HelpCircle, Lock, FileText,
   Shield, History, MessageCircle, MessageSquarePlus, CalendarDays,
-  Star, Building2,
+  Star, Building2, Scale,
 } from 'lucide-react';
 
 export const NAV_SECTIONS = [
@@ -45,6 +45,7 @@ export const NAV_SECTIONS = [
       { id: 'updates',           label: 'Practice Updates',  icon: Newspaper   },
       { id: 'authority',         label: 'Authority Verify',  icon: ShieldCheck },
       { id: 'land-transactions', label: 'Land Transactions', icon: Building2   },
+      { id: 'legal-skill',       label: 'Legal Skill',       icon: Scale        },
       { id: 'witness',           label: 'Witness Prep',      icon: UserCheck   },
       { id: 'settlement',        label: 'Settlement',         icon: Handshake   },
       { id: 'diligence',         label: 'Due Diligence',      icon: FileSearch  },
