@@ -111,3 +111,44 @@ export async function saveWorkspace(userId, data) {
     .upsert({ user_id: userId, data, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
   if (error) throw error;
 }
+
+// ---- Profiles (admin-visible user directory) --------------------------------
+// Backed by public.profiles (see supabase/schema.sql). Separate from
+// workspaces — holds only directory info (email, name, role, status, login
+// times), never case/client data. RLS lets a user read/update their own row;
+// admin emails (see schema.sql) can read/update every row.
+
+// Returns every registered account. Empty array (not a throw) for non-admins,
+// since RLS will simply return zero rows rather than erroring.
+export async function loadAllProfiles() {
+  const sb = getSupabase();
+  if (!sb) return [];
+  const { data, error } = await sb
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+// Call on every confirmed session so last_login stays fresh and a profile
+// row exists even if the signup trigger somehow missed it (defense in depth).
+export async function touchOwnProfile(userId, email) {
+  const sb = getSupabase();
+  if (!sb || !userId) return;
+  const { error } = await sb
+    .from('profiles')
+    .upsert(
+      { id: userId, email, last_login: new Date().toISOString() },
+      { onConflict: 'id' }
+    );
+  if (error) console.error('touchOwnProfile failed', error);
+}
+
+// Admin-only in practice (RLS blocks non-admin writes to other rows).
+export async function setProfileStatus(id, status) {
+  const sb = getSupabase();
+  if (!sb) throw new Error('Cloud sync is not configured.');
+  const { error } = await sb.from('profiles').update({ status }).eq('id', id);
+  if (error) throw error;
+}
