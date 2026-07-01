@@ -145,10 +145,30 @@ export async function touchOwnProfile(userId, email) {
   if (error) console.error('touchOwnProfile failed', error);
 }
 
-// Admin-only in practice (RLS blocks non-admin writes to other rows).
+// Admin-only. Routes through /api/suspend-user (server-side) which uses the
+// Supabase service-role key to call the Auth Admin API — the only way to truly
+// ban a user from signing in. The service-role key never touches the browser.
 export async function setProfileStatus(id, status) {
   const sb = getSupabase();
   if (!sb) throw new Error('Cloud sync is not configured.');
-  const { error } = await sb.from('profiles').update({ status }).eq('id', id);
-  if (error) throw error;
+
+  // Get the current admin's JWT to authenticate the server-side call.
+  const { data: sessionData } = await sb.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) throw new Error('No active session. Please sign in again.');
+
+  const action = status === 'suspended' ? 'suspend' : 'activate';
+
+  const res = await fetch('/api/suspend-user', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ userId: id, action }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
 }
