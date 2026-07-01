@@ -241,7 +241,7 @@ function OverviewTab() {
 
 // ── Users Tab ─────────────────────────────────────────────────────────────────
 function UsersTab({ showToast, audit }) {
-  const { supabaseEnabled, requestPasswordReset, setPasscode, auditLog } = useApp();
+  const { supabaseEnabled, requestPasswordReset, setPasscode, auditLog, user: currentUser } = useApp();
   const { users, setUsers, loading, error, refresh } = useAdminUsers();
   const [showAdd, setShowAdd]   = useState(false);
   const [newUser, setNewUser]   = useState({ email: '', role: 'lawyer', name: '' });
@@ -308,6 +308,13 @@ function UsersTab({ showToast, audit }) {
   const toggleStatus = async (id) => {
     const target = users.find((u) => u.id === id);
     if (!target) return;
+
+    // Self-protection: admins cannot suspend their own account.
+    if (currentUser && id === currentUser.id) {
+      showToast('warning', 'You cannot suspend your own account.');
+      return;
+    }
+
     const next = target.status === 'active' ? 'suspended' : 'active';
     if (SUPABASE_ENABLED) {
       try {
@@ -458,16 +465,24 @@ function UsersTab({ showToast, audit }) {
 
               {/* Actions */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  onClick={() => toggleStatus(user.id)}
-                  className={cn('p-2 rounded-lg transition-colors',
-                    user.status === 'active'
-                      ? 'hover:bg-amber-50 dark:hover:bg-amber-900/20 text-slate-400 hover:text-amber-500'
-                      : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-400 hover:text-emerald-500'
-                  )}
-                  title={user.status === 'active' ? 'Suspend user' : 'Activate user'}>
-                  {user.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                </button>
+                {(() => {
+                  const isSelf = currentUser && user.id === currentUser.id;
+                  return (
+                    <button
+                      onClick={() => toggleStatus(user.id)}
+                      disabled={isSelf}
+                      className={cn('p-2 rounded-lg transition-colors',
+                        isSelf
+                          ? 'opacity-30 cursor-not-allowed text-slate-300'
+                          : user.status === 'active'
+                            ? 'hover:bg-amber-50 dark:hover:bg-amber-900/20 text-slate-400 hover:text-amber-500'
+                            : 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20 text-slate-400 hover:text-emerald-500'
+                      )}
+                      title={isSelf ? 'You cannot suspend your own account' : user.status === 'active' ? 'Suspend user' : 'Activate user'}>
+                      {user.status === 'active' ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                    </button>
+                  );
+                })()}
                 <button
                   onClick={() => { setResetTarget(user); setNewPin(''); }}
                   className="p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-400 hover:text-blue-500 transition-colors"
