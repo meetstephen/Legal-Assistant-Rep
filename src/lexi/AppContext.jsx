@@ -17,7 +17,7 @@ import { obfuscate, deobfuscate } from './crypto.js';
 import {
   getSessionUser, onAuthChange, signInWithPassword, signUpWithPassword,
   signInWithMagicLink, signOut as sbSignOut, loadWorkspace, saveWorkspace,
-  sendPasswordReset, updatePassword as sbUpdatePassword,
+  sendPasswordReset, updatePassword as sbUpdatePassword, touchOwnProfile,
 } from './supabase.js';
 import { evaluateRateLimit, prune, RATE_DEFAULTS } from './rateLimit.js';
 import { hashPasscode, verifyPasscode, evaluateLockout, registerFailure, resetLockout } from './auth.js';
@@ -331,6 +331,8 @@ export function AppProvider({ children }) {
       setCloudStatus('syncing');
       (async () => {
         try {
+          // Fire-and-forget: update last_login and ensure profile row exists.
+          touchOwnProfile(user.id, user.email).catch(() => {});
           const data = await loadWorkspace(user.id);
           if (cancelled) return;
           if (data && typeof data === 'object') {

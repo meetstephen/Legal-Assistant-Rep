@@ -21,6 +21,7 @@ import { formatCurrency, formatDateTime, generateId, cn } from '../utils.js';
 import { computeProfessionalFee, AUDIT_EVENTS } from '../helpers.js';
 import { JURISDICTIONS } from '../legalData.js';
 import { SUPABASE_ENABLED } from '../runtime.js';
+import { loadAllProfiles, setProfileStatus } from '../supabase.js';
 
 // ── Seed admin record ─────────────────────────────────────────────────────────
 // Email must match VITE_ADMIN_EMAIL (or the fallback in AppContext.jsx).
@@ -47,13 +48,56 @@ function getAdminUsers() {
     storage.set(STORAGE_KEYS.ADMIN_USERS, [SEED_ADMIN]);
     return [SEED_ADMIN];
   }
-  // Ensure seed admin is always present.
   if (!users.find((u) => u.id === SEED_ADMIN.id)) {
     const updated = [SEED_ADMIN, ...users];
     storage.set(STORAGE_KEYS.ADMIN_USERS, updated);
     return updated;
   }
   return users;
+}
+
+// Maps a public.profiles Supabase row to the camelCase shape the UI renders.
+function mapProfileToUserRow(p) {
+  return {
+    id: p.id,
+    email: p.email,
+    name: p.name || (p.email || '').split('@')[0],
+    role: p.role || 'lawyer',
+    status: p.status || 'active',
+    lastLogin: p.last_login,
+    createdAt: p.created_at,
+    // Deleting real Auth accounts requires a server-side service-role key.
+    // Manage account removal from Supabase Dashboard → Authentication → Users.
+    canRemove: false,
+    passwordResetPending: false,
+  };
+}
+
+// In cloud mode: fetches every real registered account from public.profiles
+// via Supabase RLS — this is what makes all signups visible to the admin.
+// In local mode: falls back to the original localStorage-seeded list.
+function useAdminUsers() {
+  const [users, setUsers]     = useState(() => (SUPABASE_ENABLED ? [] : getAdminUsers()));
+  const [loading, setLoading] = useState(SUPABASE_ENABLED);
+  const [error, setError]     = useState(null);
+
+  const refresh = useCallback(async () => {
+    if (!SUPABASE_ENABLED) { setUsers(getAdminUsers()); return; }
+    setLoading(true);
+    try {
+      const profiles = await loadAllProfiles();
+      setUsers(profiles.map(mapProfileToUserRow));
+      setError(null);
+    } catch (e) {
+      setError(e.message || 'Could not load users.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  return { users, setUsers, loading, error, refresh };
 }
 
 function isOnline(lastLogin) {
@@ -107,7 +151,7 @@ function StatCard({ icon: Icon, label, value, sub, color = 'emerald' }) {
 // ── Overview Tab ──────────────────────────────────────────────────────────────
 function OverviewTab() {
   const { cases, clients, tasks, aiUsage, auditLog } = useApp();
-  const users = useMemo(getAdminUsers, []);
+  const { users } = useAdminUsers();
 
   const activeUsers   = users.filter((u) => u.status === 'active').length;
   const onlineUsers   = users.filter((u) => isOnline(u.lastLogin)).length;
@@ -198,7 +242,7 @@ function OverviewTab() {
 // ── Users Tab ─────────────────────────────────────────────────────────────────
 function UsersTab({ showToast, audit }) {
   const { supabaseEnabled, requestPasswordReset, setPasscode, auditLog } = useApp();
-  const [users, setUsers]       = useState(getAdminUsers);
+  const { users, setUsers, loading, error, refresh } = useAdminUsers();
   const [showAdd, setShowAdd]   = useState(false);
   const [newUser, setNewUser]   = useState({ email: '', role: 'lawyer', name: '' });
   const [resetTarget, setResetTarget] = useState(null);
@@ -207,10 +251,11 @@ function UsersTab({ showToast, audit }) {
   const [resetBusy, setResetBusy] = useState(false);
   const [searchQ, setSearchQ]   = useState('');
 
+  // Local-mode: persist to localStorage. Cloud-mode: source of truth is Supabase.
   const saveUsers = useCallback((list) => {
     setUsers(list);
-    storage.set(STORAGE_KEYS.ADMIN_USERS, list);
-  }, []);
+    if (!SUPABASE_ENABLED) storage.set(STORAGE_KEYS.ADMIN_USERS, list);
+  }, [setUsers]);
 
   // Count activity per user (match email in audit detail)
   const userActivity = useMemo(() => {
@@ -234,6 +279,10 @@ function UsersTab({ showToast, audit }) {
   );
 
   const addUser = () => {
+    if (SUPABASE_ENABLED) {
+      showToast('warning', 'Real accounts sign up themselves. To invite someone, use Supabase Dashboard → Authentication → Users → Invite.');
+      return;
+    }
     if (!newUser.email.trim()) { showToast('warning', 'Email is required.'); return; }
     if (users.find((u) => u.email.toLowerCase() === newUser.email.toLowerCase().trim())) {
       showToast('warning', 'A user with this email already exists.'); return;
@@ -256,17 +305,29 @@ function UsersTab({ showToast, audit }) {
     setShowAdd(false);
   };
 
-  const toggleStatus = (id) => {
-    const updated = users.map((u) => {
+  const toggleStatus = async (id) => {
+    const target = users.find((u) => u.id === id);
+    if (!target) return;
+    const next = target.status === 'active' ? 'suspended' : 'active';
+    if (SUPABASE_ENABLED) {
+      try {
+        await setProfileStatus(id, next);
+        audit('USER_STATUS', `${target.email} → ${next}`);
+        showToast('success', `${target.email} is now ${next}.`);
+        await refresh();
+      } catch (e) {
+        showToast('error', e.message || 'Could not update status.');
+      }
+      return;
+    }
+    saveUsers(users.map((u) => {
       if (u.id === id) {
-        const next = u.status === 'active' ? 'suspended' : 'active';
         audit('USER_STATUS', `${u.email} → ${next}`);
         showToast('success', `${u.email} is now ${next}.`);
         return { ...u, status: next };
       }
       return u;
-    });
-    saveUsers(updated);
+    }));
   };
 
   const confirmDelete = (user) => setDeleteTarget(user);
@@ -315,11 +376,26 @@ function UsersTab({ showToast, audit }) {
 
   return (
     <div className="space-y-4">
-      {SUPABASE_ENABLED && (
+      {/* Cloud-mode info banner */}
+      {SUPABASE_ENABLED && !error && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-sm text-blue-800 dark:text-blue-200">
-          <strong>Cloud mode:</strong> Admin rights are granted by email. For full IAM control, use the{' '}
+          <strong>Cloud mode:</strong> Showing all registered accounts from Supabase.
+          To invite new users, go to{' '}
           <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer"
-            className="underline">Supabase Dashboard</a>.
+            className="underline">Supabase Dashboard</a> → Authentication → Users → Invite.
+        </div>
+      )}
+      {/* Error state — most likely RLS misconfiguration or missing migration */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-300">
+          <strong>Could not load users:</strong> {error}
+          <Button variant="outline" size="sm" className="mt-2 ml-2" onClick={refresh}>Retry</Button>
+        </div>
+      )}
+      {/* Loading spinner */}
+      {loading && !error && (
+        <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading users from Supabase…
         </div>
       )}
 
