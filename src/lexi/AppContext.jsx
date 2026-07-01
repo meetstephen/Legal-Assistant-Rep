@@ -12,7 +12,7 @@ import { generateId } from './utils.js';
 import { appendAudit, buildUsageRecord } from './helpers.js';
 import { DEFAULT_TEMPLATES, FEE_DEFAULTS } from './legalData.js';
 import { DEFAULT_MODEL } from './ai.js';
-import { USE_PROXY, SUPABASE_ENABLED } from './runtime.js';
+import { USE_PROXY, SUPABASE_ENABLED, AUTH_MISCONFIGURED } from './runtime.js';
 import { obfuscate, deobfuscate } from './crypto.js';
 import {
   getSessionUser, onAuthChange, signInWithPassword, signUpWithPassword,
@@ -116,12 +116,16 @@ export function AppProvider({ children }) {
 
   // ── computed admin status ─────────────────────────────────────────────────
   // Derived from authenticated user email — never from stored profile.
-  // In local mode (no Supabase) the single device user is always admin.
+  // FAILS CLOSED: if Supabase is unconfigured on a deployed (production)
+  // build, this is a misconfiguration, not "local mode" — isAdmin must be
+  // false, never true, for every visitor. The "always admin" shortcut only
+  // applies to the genuine local Vite dev server (npm run dev).
   const isAdmin = useMemo(() => {
     if (SUPABASE_ENABLED) {
       return !!user && ADMIN_EMAILS.has((user.email || '').toLowerCase());
     }
-    return true;
+    if (AUTH_MISCONFIGURED) return false;
+    return true; // genuine local dev only
   }, [user]);
 
   // ── persistence effects ───────────────────────────────────────────────────
@@ -455,7 +459,11 @@ export function AppProvider({ children }) {
     aiReady: USE_PROXY || !!apiKey,
     useProxy: USE_PROXY,
     supabaseEnabled: SUPABASE_ENABLED,
-    user, cloudStatus, isAuthed: !SUPABASE_ENABLED || !!user,
+    authMisconfigured: AUTH_MISCONFIGURED,
+    // FAILS CLOSED: a misconfigured production build (Supabase unset on a
+    // deployed URL) must never be treated as an authenticated session.
+    user, cloudStatus,
+    isAuthed: AUTH_MISCONFIGURED ? false : (!SUPABASE_ENABLED || !!user),
     recovery, signIn, signUp, magicLink, signOut: doSignOut,
     requestPasswordReset, changePassword,
     lockEnabled, unlocked, isLocked: lockEnabled && !unlocked,

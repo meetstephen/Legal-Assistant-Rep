@@ -40,6 +40,18 @@ export const SUPABASE_ANON_KEY =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) || '';
 export const SUPABASE_ENABLED = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 
+// True for any Vercel/production build (`npm run build`), false only for the
+// local Vite dev server (`npm run dev`). Used to fail CLOSED — never open —
+// if Supabase config is ever missing on a deployed build. Local-only "single
+// device, always admin" mode must never activate outside genuine local dev.
+export const IS_PROD =
+  typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.PROD === true;
+
+// If true, this build is publicly reachable but has no way to authenticate
+// or restrict admin access. AuthGate renders a hard stop screen for this —
+// it must never fall through to local-only "everyone is admin" behaviour.
+export const AUTH_MISCONFIGURED = IS_PROD && !SUPABASE_ENABLED;
+
 // Guarded feature flags — equivalent to runtime.py's guarded imports.
 // These detect whether optional browser capabilities are present so the UI
 // can degrade gracefully (e.g. document parsing libraries are loaded lazily).

@@ -213,7 +213,28 @@ function LockScreen() {
 }
 
 export function AuthGate({ children }) {
-  const { supabaseEnabled, authLoading, isAuthed, recovery, isLocked } = useApp();
+  const { supabaseEnabled, authMisconfigured, authLoading, isAuthed, recovery, isLocked } = useApp();
+
+  // FAIL CLOSED: a deployed build with no way to authenticate must never
+  // fall through to "local mode" (which treats every visitor as admin).
+  // This check runs before anything else in this component.
+  if (authMisconfigured) {
+    return (
+      <Shell subtitle="Configuration required">
+        <div className="text-center space-y-3">
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            This deployment is missing its authentication configuration, so access
+            has been disabled to protect user data.
+          </p>
+          <p className="text-xs text-slate-400">
+            If you are the administrator: confirm <code className="font-mono">VITE_SUPABASE_URL</code> and{' '}
+            <code className="font-mono">VITE_SUPABASE_ANON_KEY</code> are set for the <strong>Production</strong> environment
+            in Vercel, then trigger a new deployment.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
 
   if (supabaseEnabled) {
     if (authLoading) {
@@ -231,6 +252,7 @@ export function AuthGate({ children }) {
   }
 
   // Local-only mode: the device passcode is the login wall.
+  // (Only reachable in genuine local dev — see authMisconfigured above.)
   if (isLocked) return <LockScreen />;
 
   return children;
