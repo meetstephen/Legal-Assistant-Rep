@@ -9,7 +9,7 @@
 //   • Neither               -> transparent pass-through (local-only, no lock).
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Scale, Loader2, Mail, KeyRound, LogIn, UserPlus, Sparkles, Lock, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { BRAND_LABEL, TAGLINE } from '../runtime.js';
@@ -51,6 +51,18 @@ function LoginScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [suspendedNotice, setSuspendedNotice] = useState(false);
+
+  // Flag set by the mid-session suspension poll (see AppContext.jsx) right
+  // before it force-signs-out the user. Shown once, then cleared.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('lexi:suspended') === '1') {
+        setSuspendedNotice(true);
+        sessionStorage.removeItem('lexi:suspended');
+      }
+    } catch { /* private mode or storage unavailable — non-fatal */ }
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -97,6 +109,11 @@ function LoginScreen() {
   const Icon = MODES[mode].icon;
   return (
     <Shell>
+      {suspendedNotice && (
+        <div className="mb-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          Your account access has been suspended. Contact your workspace administrator if you believe this is a mistake.
+        </div>
+      )}
       <div className="flex gap-1 mb-5 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
         {Object.entries(MODES).map(([key, m]) => (
           <button key={key} onClick={() => { setMode(key); setNotice(''); }}

@@ -145,6 +145,27 @@ export async function touchOwnProfile(userId, email) {
   if (error) console.error('touchOwnProfile failed', error);
 }
 
+// Lightweight self-status check, used to detect a mid-session suspension.
+// Supabase access tokens remain valid until they naturally expire — banning
+// a user does NOT invalidate a token already in the browser (this is
+// documented Supabase/GoTrue behaviour: the access token is stateless and is
+// only checked for expiry, never against the database, on each request).
+// So an already-logged-in suspended user is NOT force-disconnected by the
+// ban alone — this poll is what closes that gap on the client, backed by the
+// workspaces RLS status check (see schema.sql) as the real data-access
+// boundary in the meantime.
+export async function getOwnStatus(userId) {
+  const sb = getSupabase();
+  if (!sb || !userId) return null;
+  const { data, error } = await sb
+    .from('profiles')
+    .select('status')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) { console.error('getOwnStatus failed', error); return null; }
+  return data?.status || null;
+}
+
 // Admin-only. Routes through /api/suspend-user (server-side) which uses the
 // Supabase service-role key to call the Auth Admin API — the only way to truly
 // ban a user from signing in. The service-role key never touches the browser.

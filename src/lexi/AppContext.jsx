@@ -18,6 +18,7 @@ import {
   getSessionUser, onAuthChange, signInWithPassword, signUpWithPassword,
   signInWithMagicLink, signOut as sbSignOut, loadWorkspace, saveWorkspace,
   sendPasswordReset, updatePassword as sbUpdatePassword, touchOwnProfile,
+  getOwnStatus,
 } from './supabase.js';
 import { evaluateRateLimit, prune, RATE_DEFAULTS } from './rateLimit.js';
 import { hashPasscode, verifyPasscode, evaluateLockout, registerFailure, resetLockout } from './auth.js';
@@ -379,6 +380,42 @@ export function AppProvider({ children }) {
   const signUp  = useCallback((email, password) => signUpWithPassword(email, password), []);
   const magicLink = useCallback((email) => signInWithMagicLink(email), []);
   const doSignOut = useCallback(async () => { await sbSignOut(); setUser(null); audit('LOGOUT', ''); }, [audit]);
+
+  // ── mid-session suspension enforcement ──────────────────────────────────
+  // Banning a Supabase user blocks future logins/refreshes but does NOT
+  // invalidate a JWT already sitting in the browser (documented Supabase
+  // behaviour — access tokens are stateless and checked only for expiry, not
+  // against the database, on every request). Without this poll, a user who
+  // is suspended while actively using the app would stay logged into the UI
+  // until their token naturally expires. This closes that gap client-side;
+  // the workspaces RLS status check (schema.sql) is the real data-access
+  // boundary that holds even during the brief gap between suspension and
+  // the next poll tick.
+  useEffect(() => {
+    if (!SUPABASE_ENABLED || !user) return;
+    let cancelled = false;
+
+    const checkStatus = async () => {
+      const status = await getOwnStatus(user.id);
+      if (cancelled || !status) return;
+      if (status === 'suspended') {
+        try { sessionStorage.setItem('lexi:suspended', '1'); } catch { /* private mode or storage unavailable — non-fatal */ }
+        doSignOut();
+      }
+    };
+
+    const intervalId = setInterval(checkStatus, 45_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') checkStatus(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', checkStatus);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', checkStatus);
+    };
+  }, [user, doSignOut]);
   const requestPasswordReset = useCallback((email) => sendPasswordReset(email), []);
   const changePassword = useCallback(async (newPassword) => {
     await sbUpdatePassword(newPassword);
