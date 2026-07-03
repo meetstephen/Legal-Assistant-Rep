@@ -33,6 +33,7 @@ export const STORAGE_KEYS = {
   ADMIN_USERS: 'admin-users',
   FEEDBACK: 'feedback',
   ONBOARDING_DONE: 'onboarding-done',
+  COURT_DIARY: 'court-diary',
 };
 
 export const storage = {

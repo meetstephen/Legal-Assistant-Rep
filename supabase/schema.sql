@@ -166,3 +166,10 @@ insert into public.profiles (id, email, name)
 select id, email, split_part(email, '@', 1)
 from auth.users
 on conflict (id) do nothing;
+
+-- ============================================================
+-- 6) Deadline alert idempotency — used by api/send-deadline-alerts.js (the
+--    daily Vercel Cron job) to avoid sending duplicate digests if the cron
+--    fires more than once in a short window (retries, redeploys, etc.).
+-- ============================================================
+alter table public.profiles add column if not exists last_deadline_alert_at timestamptz;

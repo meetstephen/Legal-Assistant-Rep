@@ -3,6 +3,9 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "crons": [
+    { "path": "/api/send-deadline-alerts", "schedule": "0 6 * * *" }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

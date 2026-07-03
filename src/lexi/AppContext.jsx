@@ -47,6 +47,7 @@ const CLOUD_KEYS = [
   STORAGE_KEYS.CASES, STORAGE_KEYS.CLIENTS, STORAGE_KEYS.TASKS, STORAGE_KEYS.TIME_ENTRIES,
   STORAGE_KEYS.ANALYSES, STORAGE_KEYS.AI_HISTORY, STORAGE_KEYS.AI_USAGE, STORAGE_KEYS.TEMPLATES,
   STORAGE_KEYS.AUDIT_LOG, STORAGE_KEYS.PROFILE, STORAGE_KEYS.ADMIN_CASES, STORAGE_KEYS.CHAT,
+  STORAGE_KEYS.COURT_DIARY,
 ];
 
 export const useApp = () => {
@@ -374,6 +375,37 @@ export function AppProvider({ children }) {
     }, 1500);
     return () => clearTimeout(saveTimerRef.current);
   }, [user, cases, clients, tasks, timeEntries, analyses, aiHistory, aiUsage, templates, auditLog, profile]);
+
+  // ── periodic safety-net sync ────────────────────────────────────────────
+  // Some workspace slices (e.g. Court Diary) manage their own local state
+  // directly against localStorage rather than through AppContext's React
+  // state, so writes to them never trigger the debounced effect above (its
+  // dependency array only tracks state this context owns). Without this,
+  // those slices would silently never reach Supabase unless the user
+  // happened to also touch a tracked field (cases, clients, etc.) in the
+  // same session. This interval re-reads the full CLOUD_KEYS payload from
+  // localStorage every 60s and pushes it if anything has changed, so every
+  // synced slice — present and future — gets a reliable upper bound on sync
+  // latency regardless of which component wrote it.
+  useEffect(() => {
+    if (!SUPABASE_ENABLED || !user) return undefined;
+    let lastSnapshot = null;
+    const tick = async () => {
+      if (!syncReadyRef.current) return;
+      const payload = {};
+      CLOUD_KEYS.forEach((k) => { const v = storage.get(k, null); if (v !== null) payload[k] = v; });
+      const snapshot = JSON.stringify(payload);
+      if (snapshot === lastSnapshot) return; // nothing changed — skip the write
+      lastSnapshot = snapshot;
+      try {
+        setCloudStatus('syncing');
+        await saveWorkspace(user.id, payload);
+        setCloudStatus('synced');
+      } catch { setCloudStatus('error'); }
+    };
+    const intervalId = setInterval(tick, 60_000);
+    return () => clearInterval(intervalId);
+  }, [user]);
 
   // ── auth actions ──────────────────────────────────────────────────────────
   const signIn  = useCallback(async (email, password) => { const u = await signInWithPassword(email, password); setUser(u); return u; }, []);
