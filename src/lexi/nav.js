@@ -7,7 +7,7 @@ import {
   ShieldAlert, Users, Calculator, Wrench, Newspaper, ShieldCheck, UserCheck,
   Handshake, FileSearch, Files, Search, User, HelpCircle, Lock, FileText,
   Shield, History, MessageCircle, MessageSquarePlus, CalendarDays,
-  Star, Building2, Scale,
+  Star, Building2, Scale, UploadCloud,
 } from 'lucide-react';
 
 export const NAV_SECTIONS = [
@@ -26,6 +26,7 @@ export const NAV_SECTIONS = [
     items: [
       { id: 'cases',       label: 'Cases',        icon: FolderOpen,   badge: 'cases'   },
       { id: 'court-diary', label: 'Court Diary',  icon: CalendarDays                   },
+      { id: 'ncms-compliance', label: 'NCMS Compliance', icon: UploadCloud },
       { id: 'tasks',       label: 'Tasks',        icon: ListChecks,   badge: 'tasks'   },
       { id: 'pleadings',   label: 'Pleadings',    icon: ScrollText                     },
       { id: 'conflict',    label: 'Conflict Check', icon: ShieldAlert                  },

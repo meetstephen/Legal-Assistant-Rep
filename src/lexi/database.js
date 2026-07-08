@@ -34,6 +34,7 @@ export const STORAGE_KEYS = {
   FEEDBACK: 'feedback',
   ONBOARDING_DONE: 'onboarding-done',
   COURT_DIARY: 'court-diary',
+  NCMS_COMPLIANCE: 'ncms-compliance',
 };
 
 export const storage = {

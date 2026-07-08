@@ -34,6 +34,7 @@ import { Admin } from './lexi/pages/Admin.jsx';
 import { AuditLog } from './lexi/pages/AuditLog.jsx';
 import { Feedback } from './lexi/pages/Feedback.jsx';
 import { CourtDiary } from './lexi/pages/CourtDiary.jsx';
+import { NcmsCompliance } from './lexi/pages/NcmsCompliance.jsx';
 import { NbaCompliance } from './lexi/pages/NbaCompliance.jsx';
 import { LandTransactions } from './lexi/pages/LandTransactions.jsx';
 import { LegalSkill } from './lexi/pages/LegalSkill.jsx';
@@ -66,6 +67,7 @@ const PAGES = {
   admin: Admin,
   feedback: Feedback,
   'court-diary': CourtDiary,
+  'ncms-compliance': NcmsCompliance,
   'nba-compliance': NbaCompliance,
   'land-transactions': LandTransactions,
   'legal-skill': LegalSkill,
