@@ -54,7 +54,7 @@ async function authenticate(req) {
   if (!auth.startsWith('Bearer ')) return { ok: false, status: 401, error: 'Authentication required.' };
 
   try {
-    const response = await fetch(`${url.replace(/\\/$/, '')}/auth/v1/user`, {
+    const response = await fetch(`${url.replace(/\/$/, '')}/auth/v1/user`, {
       headers: { apikey: anonKey, Authorization: auth },
     });
     if (!response.ok) return { ok: false, status: 401, error: 'Your session is invalid or expired.' };
