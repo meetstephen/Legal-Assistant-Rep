@@ -138,9 +138,9 @@ create trigger on_auth_user_created
 
 create or replace function public.is_admin()
 returns boolean language sql stable security definer set search_path = public
-as $
+as $admin_check$
   select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
-$;
+$admin_check$;
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
 
@@ -169,7 +169,7 @@ create policy "profiles - update own or admin" on public.profiles
 
 create or replace function public.protect_profile_privileges()
 returns trigger language plpgsql security definer set search_path = public
-as $
+as $profile_lock$
 begin
   if auth.uid() = old.id and not public.is_admin() then
     new.role := old.role;
@@ -177,7 +177,7 @@ begin
   end if;
   return new;
 end;
-$;
+$profile_lock$;
 
 drop trigger if exists trg_profiles_protect_privileges on public.profiles;
 create trigger trg_profiles_protect_privileges
