@@ -297,10 +297,12 @@ export function AppProvider({ children }) {
     [
       STORAGE_KEYS.CASES, STORAGE_KEYS.CLIENTS, STORAGE_KEYS.TASKS, STORAGE_KEYS.TIME_ENTRIES,
       STORAGE_KEYS.ANALYSES, STORAGE_KEYS.AI_HISTORY, STORAGE_KEYS.AI_USAGE, STORAGE_KEYS.AUDIT_LOG,
-      STORAGE_KEYS.CHAT, STORAGE_KEYS.ADMIN_CASES,
+      STORAGE_KEYS.CHAT, STORAGE_KEYS.ADMIN_CASES, STORAGE_KEYS.COURT_DIARY,
+      STORAGE_KEYS.NCMS_COMPLIANCE, STORAGE_KEYS.API_KEY,
     ].forEach((k) => storage.remove(k));
     setCases([]); setClients([]); setTasks([]); setTimeEntries([]); setAnalyses([]);
     setAiHistory([]); setAiUsage([]); setAuditLog([]); setTemplates(DEFAULT_TEMPLATES);
+    setApiKeyState('');
     setProfileState(DEFAULT_PROFILE);
   }, []);
 
