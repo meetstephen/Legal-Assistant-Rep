@@ -18,30 +18,16 @@ import {
   getSessionUser, onAuthChange, signInWithPassword, signUpWithPassword,
   signInWithMagicLink, signOut as sbSignOut, loadWorkspace, saveWorkspace,
   sendPasswordReset, updatePassword as sbUpdatePassword, touchOwnProfile,
-  getOwnStatus,
+  getOwnProfile,
 } from './supabase.js';
 import { evaluateRateLimit, prune, RATE_DEFAULTS } from './rateLimit.js';
 import { hashPasscode, verifyPasscode, evaluateLockout, registerFailure, resetLockout } from './auth.js';
 
 const AppContext = createContext(null);
 
-// ── Admin email list ─────────────────────────────────────────────────────────
-// Primary source: VITE_ADMIN_EMAIL build-time env var (set in Vercel → Settings
-// → Environment Variables). Supports multiple emails comma-separated:
-//   VITE_ADMIN_EMAIL=you@example.com,colleague@example.com
-// Falls back to the hardcoded address if the env var is absent.
-// In LOCAL mode (no Supabase) the single device user is always admin.
-const _rawAdminEmails =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADMIN_EMAIL) ||
-  'meetstephenoyim@gmail.com';
-
-const ADMIN_EMAILS = new Set(
-  _rawAdminEmails
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean)
-);
-
+// ── Admin authorization ─────────────────────────────────────────────────────
+// Cloud admin status comes from public.profiles.role, the same source used by
+// Supabase RLS and server functions.
 // Workspace slices that sync to the cloud.
 const CLOUD_KEYS = [
   STORAGE_KEYS.CASES, STORAGE_KEYS.CLIENTS, STORAGE_KEYS.TASKS, STORAGE_KEYS.TIME_ENTRIES,
@@ -107,6 +93,7 @@ export function AppProvider({ children }) {
   const [authLoading, setAuthLoading] = useState(SUPABASE_ENABLED);
   const [cloudStatus, setCloudStatus] = useState('idle');
   const [recovery, setRecovery]       = useState(false);
+  const [accountRole, setAccountRole] = useState('lawyer');
   const syncReadyRef = useRef(false);
   const saveTimerRef = useRef(null);
 
@@ -124,12 +111,10 @@ export function AppProvider({ children }) {
   // false, never true, for every visitor. The "always admin" shortcut only
   // applies to the genuine local Vite dev server (npm run dev).
   const isAdmin = useMemo(() => {
-    if (SUPABASE_ENABLED) {
-      return !!user && ADMIN_EMAILS.has((user.email || '').toLowerCase());
-    }
+    if (SUPABASE_ENABLED) return !!user && accountRole === 'admin';
     if (AUTH_MISCONFIGURED) return false;
     return true; // genuine local dev only
-  }, [user]);
+  }, [user, accountRole]);
 
   // ── persistence effects ───────────────────────────────────────────────────
   useEffect(() => { applyTheme(isDark); storage.set(STORAGE_KEYS.THEME, isDark); }, [isDark]);
@@ -340,8 +325,11 @@ export function AppProvider({ children }) {
       setCloudStatus('syncing');
       (async () => {
         try {
-          // Fire-and-forget: update last_login and ensure profile row exists.
-          touchOwnProfile(user.id, user.email).catch(() => {});
+          // Ensure the profile exists, then load the server-authoritative role.
+          await touchOwnProfile(user.id, user.email);
+          const ownProfile = await getOwnProfile(user.id);
+          if (cancelled) return;
+          setAccountRole(ownProfile?.role || 'lawyer');
           const data = await loadWorkspace(user.id);
           if (cancelled) return;
           if (data && typeof data === 'object') {
@@ -358,6 +346,7 @@ export function AppProvider({ children }) {
     } else {
       syncReadyRef.current = false;
       resetLocalData();
+      setAccountRole('lawyer');
       setCloudStatus('idle');
     }
     return () => { cancelled = true; };
@@ -431,9 +420,10 @@ export function AppProvider({ children }) {
     let cancelled = false;
 
     const checkStatus = async () => {
-      const status = await getOwnStatus(user.id);
-      if (cancelled || !status) return;
-      if (status === 'suspended') {
+      const ownProfile = await getOwnProfile(user.id);
+      if (cancelled || !ownProfile) return;
+      setAccountRole(ownProfile.role || 'lawyer');
+      if (ownProfile.status === 'suspended') {
         try { sessionStorage.setItem('lexi:suspended', '1'); } catch { /* private mode or storage unavailable — non-fatal */ }
         doSignOut();
       }
