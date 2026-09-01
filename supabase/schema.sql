@@ -136,6 +136,14 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+create or replace function public.is_admin()
+returns boolean language sql stable security definer set search_path = public
+as $
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
+$;
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to authenticated;
+
 alter table public.profiles enable row level security;
 
 -- Admin emails here MUST match VITE_ADMIN_EMAIL in Vercel. Postgres RLS
@@ -150,15 +158,32 @@ drop policy if exists "profiles - select own or admin" on public.profiles;
 create policy "profiles - select own or admin" on public.profiles
   for select using (
     auth.uid() = id
-    or lower(auth.email()) = 'meetstephenoyim@gmail.com'
+    or public.is_admin()
   );
 
 drop policy if exists "profiles - update own or admin" on public.profiles;
 create policy "profiles - update own or admin" on public.profiles
   for update using (
     auth.uid() = id
-    or lower(auth.email()) = 'meetstephenoyim@gmail.com'
+    or public.is_admin()
   );
+
+create or replace function public.protect_profile_privileges()
+returns trigger language plpgsql security definer set search_path = public
+as $
+begin
+  if auth.uid() = old.id and not public.is_admin() then
+    new.role := old.role;
+    new.status := old.status;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists trg_profiles_protect_privileges on public.profiles;
+create trigger trg_profiles_protect_privileges
+  before update on public.profiles
+  for each row execute function public.protect_profile_privileges();
 
 -- Backfill: create profile rows for accounts that signed up BEFORE this
 -- migration ran, so nobody is invisible to the Admin dashboard.
@@ -166,6 +191,12 @@ insert into public.profiles (id, email, name)
 select id, email, split_part(email, '@', 1)
 from auth.users
 on conflict (id) do nothing;
+
+-- Bootstrap the first administrator. After this migration, profiles.role is
+-- the single source of admin authorization for the app, RLS, and server APIs.
+update public.profiles
+set role = 'admin'
+where lower(email) = 'meetstephenoyim@gmail.com';
 
 -- ============================================================
 -- 6) Deadline alert idempotency — used by api/send-deadline-alerts.js (the
