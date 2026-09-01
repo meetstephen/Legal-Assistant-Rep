@@ -146,9 +146,8 @@ grant execute on function public.is_admin() to authenticated;
 
 alter table public.profiles enable row level security;
 
--- Admin emails here MUST match VITE_ADMIN_EMAIL in Vercel. Postgres RLS
--- cannot read your Vercel env vars, so the list is duplicated. If you add
--- an admin in Vercel, add them here too (comma-separate inside the array).
+-- Administrator authorization is based on public.profiles.role. This avoids
+-- duplicating an admin-email allowlist across the client, database, and API.
 --
 -- IMPORTANT: this policy intentionally does NOT check status = 'active' —
 -- a suspended user must still be able to read their OWN profile row so the
