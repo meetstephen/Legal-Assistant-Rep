@@ -30,6 +30,15 @@ export async function getSessionUser() {
   return data?.session?.user || null;
 }
 
+// Returns the current short-lived JWT for authenticated server-side requests.
+// Never persist or log this token; Supabase refreshes it in memory/storage.
+export async function getAccessToken() {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data } = await sb.auth.getSession();
+  return data?.session?.access_token || null;
+}
+
 // Subscribe to auth changes; returns an unsubscribe function.
 // Callback receives (user, event) so callers can detect PASSWORD_RECOVERY.
 export function onAuthChange(cb) {
