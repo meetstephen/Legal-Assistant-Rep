@@ -14,7 +14,7 @@
 // Required Vercel Environment Variables (Settings → Environment Variables):
 //   SUPABASE_URL              = https://<ref>.supabase.co   (server-side)
 //   SUPABASE_SERVICE_ROLE_KEY = <service_role key>          (server-side only — never VITE_)
-//   SUPABASE_ADMIN_EMAIL      = meetstephenoyim@gmail.com   (server-side)
+// The caller's public.profiles.role is checked as the single admin source of truth.
 //
 // NOTE: VITE_ variables are build-time only and not accessible in Edge
 // Functions at runtime. Set the above WITHOUT the VITE_ prefix.
@@ -28,7 +28,6 @@ export default async function handler(req) {
   // ── Env vars ────────────────────────────────────────────────────────────────
   const SUPABASE_URL   = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
   const SERVICE_KEY    = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  const ADMIN_EMAIL    = (process.env.SUPABASE_ADMIN_EMAIL || '').toLowerCase().trim();
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return json({ error: 'Server misconfiguration: missing Supabase env vars.' }, 500);
@@ -40,7 +39,7 @@ export default async function handler(req) {
   if (!callerJwt) return json({ error: 'Missing authorization token.' }, 401);
 
   // ── Step 2: Verify JWT + get caller identity via Supabase Auth ───────────
-  let callerEmail, callerId;
+  let callerId;
   try {
     const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: {
@@ -50,15 +49,23 @@ export default async function handler(req) {
     });
     if (!res.ok) return json({ error: 'Invalid or expired session. Please sign in again.' }, 401);
     const u = await res.json();
-    callerEmail = (u.email || '').toLowerCase().trim();
-    callerId    = u.id || '';
+    callerId = u.id || '';
   } catch (e) {
     return json({ error: `Could not verify session: ${e.message}` }, 500);
   }
 
-  // ── Step 3: Confirm caller is admin ──────────────────────────────────────
-  if (!callerEmail || callerEmail !== ADMIN_EMAIL) {
-    return json({ error: 'Admin access required.' }, 403);
+  // ── Step 3: Confirm caller is an administrator ───────────────────────────
+  try {
+    const roleUrl = SUPABASE_URL + '/rest/v1/profiles?id=eq.' + encodeURIComponent(callerId) + '&select=role';
+    const roleRes = await fetch(roleUrl, {
+      headers: { 'Authorization': `Bearer ${SERVICE_KEY}`, apikey: SERVICE_KEY },
+    });
+    const profiles = await roleRes.json().catch(() => []);
+    if (!roleRes.ok || profiles?.[0]?.role !== 'admin') {
+      return json({ error: 'Admin access required.' }, 403);
+    }
+  } catch {
+    return json({ error: 'Could not verify administrator access.' }, 503);
   }
 
   // ── Step 4: Parse and validate request body ───────────────────────────────

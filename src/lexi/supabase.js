@@ -163,16 +163,16 @@ export async function touchOwnProfile(userId, email) {
 // ban alone — this poll is what closes that gap on the client, backed by the
 // workspaces RLS status check (see schema.sql) as the real data-access
 // boundary in the meantime.
-export async function getOwnStatus(userId) {
+export async function getOwnProfile(userId) {
   const sb = getSupabase();
   if (!sb || !userId) return null;
   const { data, error } = await sb
     .from('profiles')
-    .select('status')
+    .select('status, role')
     .eq('id', userId)
     .maybeSingle();
-  if (error) { console.error('getOwnStatus failed', error); return null; }
-  return data?.status || null;
+  if (error) { console.error('getOwnProfile failed', error); return null; }
+  return data || null;
 }
 
 // Admin-only. Routes through /api/suspend-user (server-side) which uses the

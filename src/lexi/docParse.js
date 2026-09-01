@@ -10,6 +10,7 @@
 import { sanitizeDocContext } from './crypto.js';
 
 const MAX_PDF_PAGES = 60;
+export const MAX_DOCUMENT_BYTES = 25 * 1024 * 1024; // 25 MiB
 
 async function parsePdf(file) {
   const pdfjs = await import('pdfjs-dist');
@@ -49,8 +50,16 @@ function stripRtf(rtf) {
     .trim();
 }
 
+export function validateDocumentFile(file) {
+  if (!file || typeof file.size !== 'number') throw new Error('Choose a valid document first.');
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    throw new Error('This document is too large. Please upload a file smaller than 25 MB.');
+  }
+}
+
 // Returns { name, type, pages, raw, sanitized, flags, truncated }
 export async function extractDocument(file) {
+  validateDocumentFile(file);
   const name = file.name || 'document';
   const lower = name.toLowerCase();
   let raw = '';
