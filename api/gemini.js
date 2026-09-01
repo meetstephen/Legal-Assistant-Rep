@@ -17,6 +17,8 @@ const ALLOWED_MODELS = new Set([
 
 const WINDOW_MS = 60_000;
 const buckets = new Map();
+const UPSTASH_URL = (process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/$/, '');
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 
 function clientIp(req) {
   const fwd = req.headers.get('x-forwarded-for');
@@ -24,19 +26,63 @@ function clientIp(req) {
   return req.headers.get('x-real-ip') || 'unknown';
 }
 
-function rateLimit(ip, limit) {
-  if (!limit || limit <= 0) return { limited: false };
+function localRateLimit(identifier, limit) {
+  if (!limit || limit <= 0) return { limited: false, backend: 'disabled' };
   const now = Date.now();
-  const bucket = buckets.get(ip);
+  const bucket = buckets.get(identifier);
   if (!bucket || now - bucket.start >= WINDOW_MS) {
-    buckets.set(ip, { count: 1, start: now });
-    return { limited: false };
+    buckets.set(identifier, { count: 1, start: now });
+    return { limited: false, backend: 'local' };
   }
   bucket.count += 1;
   if (bucket.count > limit) {
-    return { limited: true, retryAfter: Math.ceil((bucket.start + WINDOW_MS - now) / 1000) };
+    return { limited: true, retryAfter: Math.ceil((bucket.start + WINDOW_MS - now) / 1000), backend: 'local' };
   }
-  return { limited: false };
+  return { limited: false, backend: 'local' };
+}
+
+// A fixed-window counter in Upstash Redis is shared by every Vercel Edge
+// instance. The local limiter remains a safe development/failure fallback.
+async function rateLimit(identifier, limit) {
+  if (!limit || limit <= 0) return { limited: false, backend: 'disabled' };
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return localRateLimit(identifier, limit);
+
+  const now = Date.now();
+  const windowId = Math.floor(now / WINDOW_MS);
+  const key = `lexi:gemini:rate:${identifier}:${windowId}`;
+  try {
+    const increment = await fetch(UPSTASH_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(['INCR', key]),
+    });
+    const count = Number((await increment.json()).result);
+    if (!increment.ok || !Number.isFinite(count)) throw new Error('Invalid Upstash response');
+
+    // Expiry only manages storage; windowId—not TTL—defines the quota window.
+    fetch(UPSTASH_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(['EXPIRE', key, 120]),
+    }).catch(() => {});
+
+    if (count > limit) {
+      return {
+        limited: true,
+        retryAfter: Math.max(1, Math.ceil((((windowId + 1) * WINDOW_MS) - now) / 1000)),
+        backend: 'upstash',
+      };
+    }
+    return { limited: false, backend: 'upstash' };
+  } catch {
+    return localRateLimit(identifier, limit);
+  }
 }
 
 function supabaseConfig() {
@@ -78,7 +124,7 @@ export default async function handler(req) {
   if (declaredSize > MAX_REQUEST_BYTES) return json({ error: 'Request is too large.' }, 413);
 
   const perMin = Number(process.env.RATE_LIMIT_PER_MIN ?? 20);
-  const limited = rateLimit(clientIp(req), perMin);
+  const limited = await rateLimit(auth.user.id || clientIp(req), perMin);
   if (limited.limited) {
     return new Response(JSON.stringify({ error: `Server rate limit reached. Try again in ${limited.retryAfter}s.` }), {
       status: 429,
