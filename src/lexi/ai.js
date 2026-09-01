@@ -11,9 +11,10 @@
 
 const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
-import { USE_PROXY } from './runtime.js';
+import { USE_PROXY, SUPABASE_ENABLED } from './runtime.js';
+import { getAccessToken } from './supabase.js';
 
-function callGemini({ apiKey, model, stream, body, signal }) {
+async function callGemini({ apiKey, model, stream, body, signal }) {
   if (apiKey) {
     const method = stream ? 'streamGenerateContent' : 'generateContent';
     const qs = stream
@@ -28,9 +29,18 @@ function callGemini({ apiKey, model, stream, body, signal }) {
   }
 
   if (USE_PROXY) {
+    // A shared server key must only be reachable by an authenticated workspace
+    // member. In local-only development Supabase is intentionally optional.
+    const token = SUPABASE_ENABLED ? await getAccessToken() : null;
+    if (SUPABASE_ENABLED && !token) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
     return fetch('/api/gemini', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ model, action: stream ? 'stream' : 'generate', body }),
       signal,
     });
