@@ -73,11 +73,14 @@ export function evaluateLockout(state = { attempts: 0, lockedUntil: 0 }) {
 }
 
 export function registerFailure(state = { attempts: 0, lockedUntil: 0 }) {
-  const attempts = (state.attempts || 0) + 1;
+  const now = Date.now();
+  if (state.lockedUntil > now) return state;
+  const expired = state.lockedUntil > 0 && state.lockedUntil <= now;
+  const attempts = (expired ? 0 : (state.attempts || 0)) + 1;
   let lockedUntil = 0;
   let warning = '';
   if (attempts >= MAX_ATTEMPTS) {
-    lockedUntil = Date.now() + LOCKOUT_MS;
+    lockedUntil = now + LOCKOUT_MS;
     warning = 'Too many attempts — locked for 5 minutes.';
   } else if (attempts >= 3) {
     warning = `${MAX_ATTEMPTS - attempts} attempt(s) left before a 5-minute lockout.`;
@@ -88,3 +91,4 @@ export function registerFailure(state = { attempts: 0, lockedUntil: 0 }) {
 export function resetLockout() {
   return { attempts: 0, lockedUntil: 0 };
 }
+

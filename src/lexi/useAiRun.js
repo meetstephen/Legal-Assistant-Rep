@@ -2,7 +2,8 @@
 // lexi/useAiRun.js — shared streaming-AI hook used by every AI page
 // ============================================================
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { createAiRunLifecycle } from './aiRunLifecycle.js';
 import { useApp } from './AppContext.jsx';
 import { streamGenerate, isWeakAnswer } from './ai.js';
 import { parseConfidence } from './prompts.js';
@@ -20,9 +21,13 @@ export function useAiRun(feature = 'ai') {
   const [cleanText, setCleanText] = useState('');
   const [error, setError] = useState('');
   const [grounded, setGrounded] = useState(false);
-  const abortRef = useRef(null);
+  const lifecycleRef = useRef(null);
+  if (!lifecycleRef.current) lifecycleRef.current = createAiRunLifecycle();
+  useEffect(() => () => lifecycleRef.current.cancel(), []);
 
   const reset = useCallback(() => {
+    lifecycleRef.current.cancel();
+    setRunning(false);
     setText('');
     setThoughts('');
     setSources([]);
@@ -36,10 +41,11 @@ export function useAiRun(feature = 'ai') {
   }, []);
 
   const stop = useCallback(() => {
-    if (abortRef.current) abortRef.current.abort();
+    lifecycleRef.current.cancel();
     setRunning(false);
     setRefining(false);
-  }, []);
+    showToast('info', 'Stopped.');
+  }, [showToast]);
 
   const run = useCallback(
     async (opts = {}) => {
@@ -50,8 +56,8 @@ export function useAiRun(feature = 'ai') {
       if (!guardAi()) return null;
       reset();
       setRunning(true);
-      const controller = new AbortController();
-      abortRef.current = controller;
+      const request = lifecycleRef.current.start();
+      const { controller, isCurrent } = request;
       const useGrounding = opts.webGrounding != null ? opts.webGrounding : webGrounding;
       try {
         let result = await streamGenerate({
@@ -64,19 +70,22 @@ export function useAiRun(feature = 'ai') {
           userText: opts.userText,
           parts: opts.parts,
           signal: controller.signal,
-          onText: (_chunk, full) => setText(full),
-          onThought: (_chunk, full) => setThoughts(full),
+          onText: (_chunk, full) => { if (isCurrent()) setText(full); },
+          onThought: (_chunk, full) => { if (isCurrent()) setThoughts(full); },
         });
+        if (!isCurrent()) return null;
+        if (result.usage) recordUsage(feature, { model, usage: result.usage, grounded: result.grounded });
         let parsed = parseConfidence(result.text);
 
         // ---- Quality gate (opt-in): silently critique; if weak, regenerate
         // once under stricter instructions. Off by default to control cost.
-        if (opts.qualityGate && opts.userText && !controller.signal.aborted) {
+        if (opts.qualityGate && opts.userText && isCurrent() && guardAi()) {
           setRefining(true);
           const weak = await isWeakAnswer({
             apiKey, model, question: opts.userText, answer: parsed.cleanText, signal: controller.signal,
           });
-          if (weak && !controller.signal.aborted) {
+          if (!isCurrent()) return null;
+          if (weak && guardAi()) {
             const stricter = `${opts.systemInstruction || ''}\n\nSTRICTER PASS: a first draft was judged weak. Be more rigorous and precise: ground every proposition in the correct Nigerian statute/section and a real authority, address counter-arguments, remove anything you cannot stand behind, and do NOT invent citations.`;
             const second = await streamGenerate({
               apiKey,
@@ -88,9 +97,11 @@ export function useAiRun(feature = 'ai') {
               userText: opts.userText,
               parts: opts.parts,
               signal: controller.signal,
-              onText: (_chunk, full) => setText(full),
-              onThought: (_chunk, full) => setThoughts(full),
+              onText: (_chunk, full) => { if (isCurrent()) setText(full); },
+              onThought: (_chunk, full) => { if (isCurrent()) setThoughts(full); },
             });
+            if (!isCurrent()) return null;
+            if (second.usage) recordUsage(feature, { model, usage: second.usage, grounded: second.grounded });
             result = second;
             parsed = parseConfidence(second.text);
             setRefined(true);
@@ -98,16 +109,17 @@ export function useAiRun(feature = 'ai') {
           setRefining(false);
         }
 
+        if (!isCurrent()) return null;
         setText(result.text);
         setCleanText(parsed.cleanText);
         setScores(parsed.scores);
         setSources(result.sources || []);
         setQueries(result.queries || []);
         setGrounded(result.grounded);
-        if (result.usage) recordUsage(feature, { model, usage: result.usage, grounded: result.grounded });
         audit('AI_QUERY', feature);
         return { ...result, cleanText: parsed.cleanText, scores: parsed.scores };
       } catch (e) {
+        if (!isCurrent()) return null;
         if (e.name === 'AbortError') {
           showToast('info', 'Stopped.');
         } else {
@@ -116,9 +128,11 @@ export function useAiRun(feature = 'ai') {
         }
         return null;
       } finally {
-        setRunning(false);
-        setRefining(false);
-        abortRef.current = null;
+        if (isCurrent()) {
+          setRunning(false);
+          setRefining(false);
+          request.finish();
+        }
       }
     },
     [apiKey, aiReady, model, webGrounding, recordUsage, audit, showToast, guardAi, reset, feature]
@@ -129,3 +143,4 @@ export function useAiRun(feature = 'ai') {
     text, thoughts, sources, queries, scores, cleanText, error, grounded,
   };
 }
+
