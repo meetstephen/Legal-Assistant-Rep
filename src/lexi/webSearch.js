@@ -68,40 +68,33 @@ export async function verifyCitations({ apiKey, model, cases, signal }) {
     userText: `Verify these cases:\n${list}`,
   });
 
-  const verdicts = parseVerdicts(r.text, cases);
+  const verdicts = parseVerdicts(r.text, cases, r.sources);
   return { verdicts, sources: r.sources, raw: r.text, usage: r.usage };
 }
 
-function parseVerdicts(text, cases) {
-  const lines = text.split('\n').filter((l) => /\|/.test(l));
-  const out = [];
-  lines.forEach((line) => {
-    const cells = line.replace(/^\s*\d+\.\s*/, '').split('|').map((s) => s.trim());
-    if (cells.length < 2) return;
-    const [verdictRaw, name, citation, url, note] = cells;
-    const v = (verdictRaw || '').toUpperCase();
-    let verdict = 'UNCERTAIN';
-    if (v.includes('REAL')) verdict = 'REAL';
-    else if (v.includes('NOT')) verdict = 'NOT FOUND';
-    out.push({
-      name: name || '',
-      verdict,
-      citation: citation && citation !== '-' ? citation : '',
-      url: url && /^https?:\/\//.test(url) ? url : '',
-      note: note || '',
-    });
-  });
-  // Fall back to one row per requested case if parsing failed.
-  if (!out.length) {
-    return cases.map((c) => ({
-      name: c.name,
-      verdict: 'UNCERTAIN',
-      citation: c.citation || '',
-      url: '',
-      note: 'Could not parse a verdict — open the live sources to confirm.',
-    }));
+// Preserve input identity/order and fail closed on omissions, duplicates or unsupported URLs.
+export function parseVerdicts(text, cases, sources = []) {
+  const sourceUrls = new Set(sources.map(s => s.uri));
+  const rows = new Map();
+  for (const line of text.split('\n')) {
+    const match = line.match(/^\s*(\d+)\.\s*(.*)$/);
+    if (!match) continue;
+    const index = Number(match[1]) - 1;
+    if (index < 0 || index >= cases.length) continue;
+    if (rows.has(index)) { rows.set(index, null); continue; }
+    rows.set(index, match[2].split('|').map(s => s.trim()));
   }
-  return out;
+  const normalize = name => String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+  return cases.map((c, index) => {
+    const cells = rows.get(index);
+    const fallback = { name: c.name, verdict: 'UNCERTAIN', citation: c.citation || '', url: '', note: 'Missing, ambiguous or unsupported verdict — review original sources.' };
+    if (!cells || cells.length < 5 || normalize(cells[1]) !== normalize(c.name)) return fallback;
+    const [raw, , citation, url, note] = cells;
+    let verdict = ['REAL', 'NOT FOUND', 'UNCERTAIN'].includes(raw.toUpperCase()) ? raw.toUpperCase() : 'UNCERTAIN';
+    const supported = /^https?:\/\//.test(url) && sourceUrls.has(url);
+    if (verdict === 'REAL' && !supported) return { ...fallback, note: 'Claimed confirming URL was not returned by live search. Existence remains unconfirmed.' };
+    return { name: c.name, verdict, citation: citation !== '-' ? citation : '', url: supported ? url : '', note: note || '' };
+  });
 }
 
 // ------------------------------------------------------------
@@ -131,7 +124,7 @@ export async function findPrecedents({ apiKey, model, query, signal }) {
     systemInstruction: system,
     userText: `Find the leading Nigerian precedents on:\n\n${query}`,
   });
-  return { items: parsePrecedents(r.text), sources: r.sources, raw: r.text, usage: r.usage, grounded: r.grounded };
+  return { items: parsePrecedents(r.text).map(item => ({ ...item, url: r.sources.some(s => s.uri === item.url) ? item.url : '', relevance: item.relevance + (r.sources.some(s => s.uri === item.url) ? '' : ' [Source unconfirmed — verify before reliance]') })), sources: r.sources, raw: r.text, usage: r.usage, grounded: r.grounded };
 }
 
 // Exported for testing. Parses the pipe-delimited precedent list.

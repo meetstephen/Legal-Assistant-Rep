@@ -48,7 +48,7 @@ export function AiResult({ ai, title = 'LexiAssist Response', exportTitle, allow
       {ai.refining && (
         <Card variant="flat" className="flex items-center gap-3 text-sm text-violet-600 dark:text-violet-300">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Quality gate: checking the draft and tightening it if needed…
+          Editorial review: improving clarity and coverage (not independent fact verification)…
         </Card>
       )}
 
@@ -62,8 +62,8 @@ export function AiResult({ ai, title = 'LexiAssist Response', exportTitle, allow
                 <FileText className="w-5 h-5 text-emerald-500" />
               </div>
               <h3 className="font-semibold text-slate-900 dark:text-white">{title}</h3>
-              {ai.grounded && <Badge variant="success"><Globe className="w-3 h-3" /> Grounded</Badge>}
-              {ai.refined && <Badge variant="violet">Quality-checked</Badge>}
+              {ai.grounded && <Badge variant="success"><Globe className="w-3 h-3" /> Search-linked</Badge>}
+              {ai.refined && <Badge variant="violet">Editorially refined</Badge>}
               {ai.running && <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />}
             </div>
             {body && !ai.running && (
@@ -85,6 +85,7 @@ export function AiResult({ ai, title = 'LexiAssist Response', exportTitle, allow
       {!ai.running && body && (
         <>
           <GroundingSources sources={ai.sources} queries={ai.queries} />
+          <p className="text-xs text-amber-600 dark:text-amber-400">Source links and model confidence are not proof of legal accuracy. Confirm operative provisions, judgment holdings and current court rules before reliance.</p>
           <ConfidenceMeter scores={ai.scores} />
           {showAudit && <CitationAudit text={body} />}
 
