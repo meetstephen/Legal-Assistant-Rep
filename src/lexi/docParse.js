@@ -36,7 +36,7 @@ async function parsePdf(file) {
   }
   let text = chunks.join('\n\n');
   if (chunks.length && pdf.numPages > MAX_PDF_PAGES) {
-    text += `\n\n[Note: document has ${pdf.numPages} pages; first ${MAX_PDF_PAGES} analysed.]`;
+    text = `[Extraction limit: document has ${pdf.numPages} pages; only the first ${MAX_PDF_PAGES} were extracted. Do not claim to have reviewed the remaining pages.]\n\n${text}`;
   }
   return { text, pages: pdf.numPages, extractedPages: pageCount, truncated: pdf.numPages > pageCount };
   } finally {
