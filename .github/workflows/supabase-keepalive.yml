@@ -1,0 +1,42 @@
+name: Supabase keep-alive
+
+on:
+  schedule:
+    # Daily at 09:17 UTC. A non-round minute reduces contention with other jobs.
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  database-activity:
+    name: Record minimal database activity
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+    steps:
+      - name: Check configured secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_ANON_KEY"
+
+      - name: Read public verified-cases table
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="${SUPABASE_URL%/}/rest/v1/verified_cases?select=id&limit=1"
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            --header "Accept: application/json" \
+            "$endpoint")"
+          if [ "$status" != "200" ]; then
+            echo "Supabase keep-alive failed with HTTP $status" >&2
+            exit 1
+          fi
+          echo "Supabase database activity recorded successfully."
