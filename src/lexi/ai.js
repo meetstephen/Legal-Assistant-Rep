@@ -14,6 +14,7 @@ const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta/models';
 import { USE_PROXY, SUPABASE_ENABLED } from './runtime.js';
 import { getAccessToken } from './supabase.js';
 import { legalSystemInstruction } from './legalPolicy.js';
+import { preparePracticeEvidence } from './practiceCorpus.js';
 
 async function callGemini({ apiKey, model, stream, body, signal }) {
   if (apiKey) {
@@ -86,7 +87,7 @@ export function estimateCost(model, usage) {
   return (inTok * p.in + outTok * p.out) / 1_000_000;
 }
 
-function buildBody({ systemInstruction, contents, level, mode }) {
+function buildBody({ systemInstruction, contents, level, mode, evidence }) {
   const body = {
     contents,
     safetySettings: SAFETY,
@@ -96,7 +97,7 @@ function buildBody({ systemInstruction, contents, level, mode }) {
       maxOutputTokens: OUTPUT_TOKENS[mode] || OUTPUT_TOKENS.standard,
     },
   };
-  body.systemInstruction = { parts: [{ text: legalSystemInstruction(systemInstruction, contents) }] };
+  body.systemInstruction = { parts: [{ text: [legalSystemInstruction(systemInstruction, contents), evidence?.context].filter(Boolean).join('\n\n') }] };
   if (level.search) {
     body.tools = [{ google_search: {} }];
   }
@@ -202,12 +203,15 @@ export async function streamGenerate({
       }))
     : [{ role: 'user', parts: contentParts }];
   const levels = buildLevels(webGrounding, thinking);
+  // Use the latest user turn, not old assistant assertions or previous forums.
+  const latest = [...contents].reverse().find(c => c.role === 'user');
+  const evidence = await preparePracticeEvidence((latest?.parts || []).map(p => p.text || '').join('\n'), { signal });
 
   let lastErr = '';
   for (let i = 0; i < levels.length; i += 1) {
     const level = levels[i];
     onLevel && onLevel(level, i);
-    const body = buildBody({ systemInstruction, contents, level, mode });
+    const body = buildBody({ systemInstruction, contents, level, mode, evidence });
     let res;
     try {
       res = await callGemini({ apiKey, model, stream: true, body, signal });
@@ -263,7 +267,7 @@ export async function streamGenerate({
     return {
       text:            acc.text.trim(),
       thoughts:        acc.thoughts.trim(),
-      sources:         acc.grounding.sources,
+      sources:         [...acc.grounding.sources, ...evidence.sources],
       queries:         acc.grounding.queries,
       usage:           acc.usage,
       model,
@@ -292,11 +296,12 @@ export async function generate({
   const contentParts = parts || [{ text: userText || '' }];
   const contents     = [{ role: 'user', parts: contentParts }];
   const levels       = buildLevels(webGrounding, thinking);
+  const evidence = await preparePracticeEvidence(contentParts.map(p => p.text || '').join('\n'), { signal });
 
   let lastErr = '';
   for (let i = 0; i < levels.length; i += 1) {
     const level = levels[i];
-    const body  = buildBody({ systemInstruction, contents, level, mode });
+    const body  = buildBody({ systemInstruction, contents, level, mode, evidence });
     let res;
     try {
       res = await callGemini({ apiKey, model, stream: false, body, signal });
@@ -331,7 +336,7 @@ export async function generate({
     return {
       text:     acc.text.trim(),
       thoughts: acc.thoughts.trim(),
-      sources:  acc.grounding.sources,
+      sources:  [...acc.grounding.sources, ...evidence.sources],
       queries:  acc.grounding.queries,
       usage:    acc.usage,
       model,
@@ -360,3 +365,4 @@ export async function isWeakAnswer({ apiKey, model, question, answer, signal }) 
     return false;
   }
 }
+

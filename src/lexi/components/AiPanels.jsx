@@ -45,9 +45,10 @@ export function GroundingSources({ sources = [], queries = [] }) {
   return (
     <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-900/10 p-4">
       <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-2">
-        <Globe className="w-4 h-4" /> Live web sources
+        <Globe className="w-4 h-4" /> Source links
         <Badge variant="success">{sources.length}</Badge>
       </div>
+      {sources.some(s => s.kind === 'court-corpus') && <p className="text-xs mb-2">Court-document links identify collected evidence supplied to the AI, not independent verification of its answer or subsequent amendments.</p>}
       {queries.length > 0 && (
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
           Searched: {queries.map((q) => `"${q}"`).join(', ')}
@@ -263,3 +264,4 @@ export function CitationAudit({ text }) {
     </div>
   );
 }
+
