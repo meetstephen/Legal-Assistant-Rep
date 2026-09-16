@@ -274,7 +274,7 @@ export function AuthGate({ children }) {
   }
 
   if (supabaseEnabled) {
-    if (authError) return <Shell subtitle="Could not restore your session"><p role="alert" className="text-sm text-red-600 mb-4">{authErrorMessage({ message: authError })}</p><Button onClick={() => window.location.reload()}>Retry connection</Button></Shell>;
+    if (authError) return <Shell subtitle="Could not restore your session"><p role="alert" className="text-sm text-red-600 mb-4">{authErrorMessage({ message: authError })}</p><Button onClick={() => window.location.reload()}>Retry connection</Button>{isAuthed && <Button variant="secondary" onClick={() => { void signOut().catch(e => showToast('error', authErrorMessage(e))); }}>Sign out</Button>}</Shell>;
     if (authLoading) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">

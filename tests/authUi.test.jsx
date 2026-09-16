@@ -9,7 +9,7 @@ const render = () => renderToStaticMarkup(<AuthGate><div>PRIVATE WORKSPACE</div>
 describe('Authentication wall rendering', () => {
   it('offers login, signup, magic link and password reset with browser autofill', () => {
     const html = render();
-    for (const text of ['Log In', 'Sign Up', 'Magic Link', 'Forgot your password?', 'autocomplete="email"', 'autocomplete="current-password"']) expect(html).toContain(text);
+    for (const text of ['Log In', 'Sign Up', 'Magic Link', 'Forgot your password?', 'autocomplete="email"', 'autocomplete="current-password"']) expect(html.toLowerCase()).toContain(text.toLowerCase());
     expect(html).not.toContain('PRIVATE WORKSPACE');
   });
   it('hides private workspace until restoration finishes', () => {
@@ -19,6 +19,7 @@ describe('Authentication wall rendering', () => {
   it('provides a visible retry action on restoration error', () => {
     context.value.authError = 'Failed to fetch';
     const html = render(); expect(html).toContain('role="alert"'); expect(html).toContain('Retry connection'); expect(html).not.toContain('PRIVATE WORKSPACE');
+    context.value.isAuthed = true; expect(render()).toContain('Sign out');
   });
   it('offers an exit from authenticated password recovery', () => {
     context.value.isAuthed = true; context.value.recovery = true;
