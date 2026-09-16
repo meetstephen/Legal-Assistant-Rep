@@ -24,6 +24,7 @@ import { ConflictCheck } from './lexi/pages/ConflictCheck.jsx';
 import { Clients } from './lexi/pages/Clients.jsx';
 import { FeeCalculator } from './lexi/pages/FeeCalculator.jsx';
 import { Tools } from './lexi/pages/Tools.jsx';
+import { PracticeDirections } from './lexi/pages/PracticeDirections.jsx';
 import { PracticeUpdates } from './lexi/pages/PracticeUpdates.jsx';
 import { AuthorityVerify } from './lexi/pages/AuthorityVerify.jsx';
 import { Templates } from './lexi/pages/Templates.jsx';
@@ -53,6 +54,7 @@ const PAGES = {
   fees: FeeCalculator,
   tools: Tools,
   updates: PracticeUpdates,
+  'practice-directions': PracticeDirections,
   authority: AuthorityVerify,
   witness: WitnessPrep,
   settlement: Settlement,
