@@ -26,7 +26,8 @@ export function getSupabase() {
 export async function getSessionUser() {
   const sb = getSupabase();
   if (!sb) return null;
-  const { data } = await sb.auth.getSession();
+  const { data, error } = await sb.auth.getSession();
+  if (error) throw error;
   return data?.session?.user || null;
 }
 
@@ -77,7 +78,9 @@ export async function signInWithPassword(email, password) {
 export async function signUpWithPassword(email, password) {
   const sb = getSupabase();
   if (!sb) throw new Error('Cloud sync is not configured.');
-  const { data, error } = await sb.auth.signUp({ email, password });
+  const { data, error } = await sb.auth.signUp({ email: email.trim(), password,
+    options: { emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
+  });
   if (error) throw error;
   return data;
 }
@@ -96,7 +99,9 @@ export async function signInWithMagicLink(email) {
 export async function signOut() {
   const sb = getSupabase();
   if (!sb) return;
-  await sb.auth.signOut();
+  // End this browser session, not every device. Never report success on error.
+  const { error } = await sb.auth.signOut({ scope: 'local' });
+  if (error) throw error;
 }
 
 // ---- Workspace (one JSONB blob per user) -----------------------------------
@@ -202,3 +207,4 @@ export async function setProfileStatus(id, status) {
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
+
