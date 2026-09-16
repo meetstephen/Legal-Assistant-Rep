@@ -1,7 +1,7 @@
-import { STATE_ZONES } from './practiceDirections.js';
+import { JURISDICTIONS as TERRITORY_NAMES } from './practiceDirections.js';
 
 export const FEDERAL_JURISDICTION = 'Nigeria (Federal)';
-export const TERRITORIAL_JURISDICTIONS = Object.keys(STATE_ZONES)
+export const TERRITORIAL_JURISDICTIONS = [...TERRITORY_NAMES]
   .sort((a, b) => a.localeCompare(b))
   .map(name => ({ id: name, label: name === 'FCT' ? 'FCT (Abuja)' : `${name} State` }));
 export const NIGERIAN_JURISDICTIONS = [FEDERAL_JURISDICTION, ...TERRITORIAL_JURISDICTIONS.map(j => j.label)];
