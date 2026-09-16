@@ -84,7 +84,7 @@ export function ConfidenceMeter({ scores }) {
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4">
       <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">
-        Confidence
+        Model self-assessment (not calibrated accuracy)
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         {AXES.map((a) => {
@@ -124,6 +124,12 @@ export function CitationAudit({ text }) {
   const [verifySources, setVerifySources] = useState([]);
   const [checked, setChecked] = useState(false);
 
+  React.useEffect(() => {
+    setVerdicts(null);
+    setVerifySources([]);
+    setChecked(false);
+  }, [text]);
+
   if (!audited.items.length && !audited.foreign.length && !audited.repealed.length) return null;
 
   const findVerdict = (item) => {
@@ -137,7 +143,6 @@ export function CitationAudit({ text }) {
 
   // Resolve each cited case to one of the three tiers.
   const rows = audited.items.map((it) => {
-    if (it.status === 'verified') return { ...it, tier: 'db' };
     const v = findVerdict(it);
     if (v && v.verdict === 'REAL' && v.url) {
       return { ...it, tier: 'web', url: v.url, webCitation: v.citation, note: v.note };
@@ -145,6 +150,7 @@ export function CitationAudit({ text }) {
     if (checked) {
       return { ...it, tier: 'needs', note: (v && v.note) || 'The live search returned no confirming source.' };
     }
+    if (it.status === 'verified') return { ...it, tier: 'db' };
     if (it.hallucinationRisk) return { ...it, tier: 'needs', note: `Risk: ${it.hallucinationRisk}` };
     if (it.citation && !isValidCitationShape(it.citation)) {
       return { ...it, tier: 'needs', note: 'Citation shape is invalid — confirm before relying.' };
@@ -170,7 +176,7 @@ export function CitationAudit({ text }) {
       const { verdicts: v, sources, usage } = await verifyCitations({
         apiKey,
         model,
-        cases: audited.items.filter((i) => i.status !== 'verified').map((i) => ({ name: i.name, citation: i.citation })),
+        cases: audited.items.map((i) => ({ name: i.name, citation: i.citation })),
       });
       setVerdicts(v);
       setVerifySources(sources || []);
@@ -185,7 +191,7 @@ export function CitationAudit({ text }) {
   };
 
   const TIER = {
-    db: { icon: BadgeCheck, cls: 'text-emerald-500', badge: 'success', label: '✓ Verified (in database)' },
+    db: { icon: BadgeCheck, cls: 'text-emerald-500', badge: 'success', label: 'Database match — confirm judgment' },
     web: { icon: Globe, cls: 'text-blue-500', badge: 'info', label: '🌐 Web-sourced — confirm source' },
     needs: { icon: AlertTriangle, cls: 'text-red-500', badge: 'danger', label: '⚠️ Needs Verification' },
     pending: { icon: HelpCircle, cls: 'text-amber-500', badge: 'warning', label: 'Unverified — run web check' },
@@ -242,9 +248,9 @@ export function CitationAudit({ text }) {
         </p>
       )}
 
-      {(counts.pending > 0 || (!checked && counts.needs > 0)) && audited.items.some((i) => i.status !== 'verified') && (
+      {audited.items.length > 0 && (
         <Button size="sm" variant="outline" onClick={runVerify} isLoading={verifying} leftIcon={<Globe className="w-4 h-4" />}>
-          🔎 Verify non-database case(s) on the live web
+          🔎 Check cited case(s) on the live web
         </Button>
       )}
       {checked && (
