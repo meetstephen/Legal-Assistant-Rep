@@ -3,8 +3,8 @@
 //
 // Extracts text from uploaded files entirely in the browser (nothing is
 // uploaded to a server). Heavy parsers (pdf.js, mammoth) are lazy-loaded so
-// they do not bloat the initial bundle. Whole documents are read (the README's
-// "~50 pages" whole-document analysis), then sanitised before reaching the AI.
+// they do not bloat the initial bundle. PDF extraction is limited to 60 pages;
+// both page and context limits are disclosed before analysis.
 // ============================================================
 
 import { sanitizeDocContext } from './crypto.js';
@@ -17,21 +17,31 @@ async function parsePdf(file) {
   const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   const data = new Uint8Array(await file.arrayBuffer());
-  const pdf = await pdfjs.getDocument({ data }).promise;
+  const loadingTask = pdfjs.getDocument({ data, isEvalSupported: false });
+  try {
+  const pdf = await loadingTask.promise;
   const pageCount = Math.min(pdf.numPages, MAX_PDF_PAGES);
   const chunks = [];
   for (let i = 1; i <= pageCount; i += 1) {
      
     const page = await pdf.getPage(i);
      
-    const content = await page.getTextContent();
-    chunks.push(content.items.map((it) => it.str).join(' '));
+    try {
+      const content = await page.getTextContent();
+      const pageText = content.items.map((it) => it.str).join(' ').trim();
+      if (pageText) chunks.push(`[PDF page ${i}]\n${pageText}`);
+    } finally {
+      page.cleanup();
+    }
   }
   let text = chunks.join('\n\n');
-  if (pdf.numPages > MAX_PDF_PAGES) {
+  if (chunks.length && pdf.numPages > MAX_PDF_PAGES) {
     text += `\n\n[Note: document has ${pdf.numPages} pages; first ${MAX_PDF_PAGES} analysed.]`;
   }
-  return text;
+  return { text, pages: pdf.numPages, extractedPages: pageCount, truncated: pdf.numPages > pageCount };
+  } finally {
+    await loadingTask.destroy();
+  }
 }
 
 async function parseDocx(file) {
@@ -51,7 +61,7 @@ function stripRtf(rtf) {
 }
 
 export function validateDocumentFile(file) {
-  if (!file || typeof file.size !== 'number') throw new Error('Choose a valid document first.');
+  if (!file || !Number.isFinite(file.size) || file.size < 0) throw new Error('Choose a valid document first.');
   if (file.size > MAX_DOCUMENT_BYTES) {
     throw new Error('This document is too large. Please upload a file smaller than 25 MB.');
   }
@@ -63,9 +73,12 @@ export async function extractDocument(file) {
   const name = file.name || 'document';
   const lower = name.toLowerCase();
   let raw = '';
+  let pdfInfo = null;
+  const mime = typeof file.type === 'string' ? file.type : '';
 
   if (lower.endsWith('.pdf') || file.type === 'application/pdf') {
-    raw = await parsePdf(file);
+    pdfInfo = await parsePdf(file);
+    raw = pdfInfo.text;
   } else if (lower.endsWith('.docx')) {
     raw = await parseDocx(file);
   } else if (lower.endsWith('.rtf')) {
@@ -81,7 +94,7 @@ export async function extractDocument(file) {
     lower.endsWith('.txt') ||
     lower.endsWith('.csv') ||
     lower.endsWith('.md') ||
-    file.type.startsWith('text/')
+    mime.startsWith('text/')
   ) {
     raw = await file.text();
   } else if (lower.endsWith('.doc')) {
@@ -90,8 +103,7 @@ export async function extractDocument(file) {
       'Legacy .doc files cannot be read in the browser. Please save as .docx, PDF, or paste the text.'
     );
   } else {
-    // Last resort: try plain text.
-    raw = await file.text();
+    throw new Error('Unsupported document format. Please use PDF, DOCX, RTF, TXT, CSV, JSON or Markdown.');
   }
 
   if (!raw || !raw.trim()) {
@@ -105,9 +117,12 @@ export async function extractDocument(file) {
     raw,
     sanitized: text,
     flags,
-    truncated,
+    pages: pdfInfo?.pages ?? null,
+    extractedPages: pdfInfo?.extractedPages ?? null,
+    truncated: truncated || Boolean(pdfInfo?.truncated),
   };
 }
 
 export const ACCEPTED_DOC_TYPES =
   '.pdf,.docx,.txt,.rtf,.csv,.json,.md,application/pdf,text/plain';
+
