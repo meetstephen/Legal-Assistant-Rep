@@ -13,6 +13,7 @@ const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 import { USE_PROXY, SUPABASE_ENABLED } from './runtime.js';
 import { getAccessToken } from './supabase.js';
+import { legalSystemInstruction } from './legalPolicy.js';
 
 async function callGemini({ apiKey, model, stream, body, signal }) {
   if (apiKey) {
@@ -90,14 +91,12 @@ function buildBody({ systemInstruction, contents, level, mode }) {
     contents,
     safetySettings: SAFETY,
     generationConfig: {
-      temperature: 0.65,
+      temperature: 0.2,
       topP: 0.95,
       maxOutputTokens: OUTPUT_TOKENS[mode] || OUTPUT_TOKENS.standard,
     },
   };
-  if (systemInstruction) {
-    body.systemInstruction = { parts: [{ text: systemInstruction }] };
-  }
+  body.systemInstruction = { parts: [{ text: legalSystemInstruction(systemInstruction, contents) }] };
   if (level.search) {
     body.tools = [{ google_search: {} }];
   }
@@ -115,7 +114,7 @@ function buildLevels(webGrounding, thinking) {
   if (webGrounding) {
     if (thinking) levels.push({ thinking: true,  search: true  });
     levels.push(              { thinking: false, search: true  });
-    levels.push(              { thinking: false, search: false });
+    // Requested live research must never silently degrade to model memory.
   } else {
     if (thinking) levels.push({ thinking: true,  search: false });
     levels.push(              { thinking: false, search: false });
@@ -140,6 +139,7 @@ function extractSources(groundingMetadata, into) {
 
 function mergeChunk(chunk, acc, handlers) {
   const cand = chunk.candidates && chunk.candidates[0];
+  if (cand?.finishReason) acc.finishReason = cand.finishReason;
   if (cand && cand.content && cand.content.parts) {
     cand.content.parts.forEach((part) => {
       if (typeof part.text !== 'string') return;
@@ -156,6 +156,14 @@ function mergeChunk(chunk, acc, handlers) {
     extractSources(cand.groundingMetadata, acc.grounding);
   }
   if (chunk.usageMetadata) acc.usage = chunk.usageMetadata;
+}
+
+function assertAnswer(acc, search) {
+  if (acc.finishReason && acc.finishReason !== 'STOP') throw new Error('The answer is incomplete or blocked (' + acc.finishReason + '). Narrow the request before relying on it.');
+  if (!acc.text.trim()) throw new Error('No usable answer returned. The response may have been blocked; please retry.');
+  if (search && !acc.grounding.sources.length) {
+    throw new Error('Live search returned no source links. This result cannot be treated as verified research. Refine the query or consult the official document.');
+  }
 }
 
 async function readErr(res) {
@@ -210,7 +218,7 @@ export async function streamGenerate({
     }
     if (!res.ok || !res.body) {
       lastErr = await readErr(res);
-      if (res.status === 429) break;
+      if ([401, 403, 429].includes(res.status)) break;
       continue;
     }
 
@@ -246,6 +254,12 @@ export async function streamGenerate({
       }
     }
 
+    buffer += decoder.decode();
+    if (buffer.trim().startsWith('data:')) {
+      const json = buffer.trim().slice(5).trim();
+      if (json && json !== '[DONE]') mergeChunk(JSON.parse(json), acc, { onThought, onText });
+    }
+    assertAnswer(acc, level.search);
     return {
       text:            acc.text.trim(),
       thoughts:        acc.thoughts.trim(),
@@ -293,7 +307,7 @@ export async function generate({
     }
     if (!res.ok) {
       lastErr = await readErr(res);
-      if (res.status === 429) break;
+      if ([401, 403, 429].includes(res.status)) break;
       continue;
     }
     const data = await res.json();
@@ -312,6 +326,8 @@ export async function generate({
       });
     }
     if (cand?.groundingMetadata) extractSources(cand.groundingMetadata, acc.grounding);
+    acc.finishReason = cand?.finishReason;
+    assertAnswer(acc, level.search);
     return {
       text:     acc.text.trim(),
       thoughts: acc.thoughts.trim(),
