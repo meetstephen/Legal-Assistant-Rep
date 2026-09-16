@@ -20,6 +20,7 @@ import {
 import { formatCurrency, formatDateTime, generateId, cn } from '../utils.js';
 import { computeProfessionalFee, AUDIT_EVENTS } from '../helpers.js';
 import { JURISDICTIONS } from '../legalData.js';
+import { normalizeJurisdiction, FEDERAL_JURISDICTION } from '../jurisdictions.js';
 import { SUPABASE_ENABLED } from '../runtime.js';
 import { loadAllProfiles, setProfileStatus } from '../supabase.js';
 
@@ -843,7 +844,7 @@ function SettingsTab({ f, setF, allowed, toggleModel, preview, save }) {
         <div className="grid sm:grid-cols-3 gap-4">
           <Input label="Default court" value={f.defaultCourt}
             onChange={(e) => setF({ ...f, defaultCourt: e.target.value })} />
-          <Select label="Default jurisdiction" value={f.defaultJurisdiction}
+          <Select label="Default jurisdiction" value={normalizeJurisdiction(f.defaultJurisdiction) || FEDERAL_JURISDICTION}
             onChange={(e) => setF({ ...f, defaultJurisdiction: e.target.value })}
             options={JURISDICTIONS.map((j) => ({ value: j, label: j }))} />
           <Input label="Monthly AI budget (USD)" type="number" value={f.monthlyAiBudget}
@@ -1001,3 +1002,4 @@ export function Admin() {
     </div>
   );
 }
+

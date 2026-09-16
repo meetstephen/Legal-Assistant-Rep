@@ -1,4 +1,6 @@
 // ============================================================
+
+import { NIGERIAN_JURISDICTIONS, highCourtName } from './jurisdictions.js';
 // lexi/legalData.js — Nigerian legal reference data
 //
 // Powers the Tools tabs (Limitation Periods, Deadline Calculator, Court
@@ -95,10 +97,7 @@ export const COURTS = [
   'Election Petition Tribunal', 'Code of Conduct Tribunal', 'Investments & Securities Tribunal',
 ];
 
-export const STATE_RULES = [
-  'Federal (FHC/NIC Rules)', 'Lagos', 'FCT Abuja', 'Rivers', 'Kano', 'Oyo',
-  'Enugu', 'Kaduna', 'Delta', 'Anambra', 'Ogun',
-];
+export const STATE_RULES = NIGERIAN_JURISDICTIONS;
 
 // ---- All 36 states + FCT, by geopolitical zone (South-East emphasised) ------
 export const NIGERIAN_STATES = [
@@ -150,26 +149,14 @@ export const NIGERIAN_STATES = [
 export const GEO_ZONES = ['South East', 'South South', 'South West', 'North Central', 'North East', 'North West'];
 
 // Jurisdiction options used across the app (Federal first, then every state).
-export const JURISDICTIONS = ['Nigeria (Federal)', ...NIGERIAN_STATES.map((s) => `${s.name} State`)];
+export const JURISDICTIONS = NIGERIAN_JURISDICTIONS;
 
 // Per-state High Court Civil Procedure Rules baseline. Years are given only
 // where well established; everything must be confirmed against the CURRENT
 // edition and any standalone Practice Directions (use the live fetch in Tools).
-export const STATE_COURT_RULES = {
-  Lagos: 'High Court of Lagos State (Civil Procedure) Rules 2019 — heavy frontloading; mandatory pre-action protocol and ADR (LMDC).',
-  'FCT (Abuja)': 'High Court of the FCT (Civil Procedure) Rules 2018 — frontloading; pre-action counselling certificate.',
-  Anambra: 'Anambra State High Court (Civil Procedure) Rules 2019 — frontloading; ADR screening.',
-  Enugu: 'Enugu State High Court (Civil Procedure) Rules — confirm current edition; frontloading and Multi-Door Courthouse referral.',
-  Imo: 'Imo State High Court (Civil Procedure) Rules — confirm current edition.',
-  Abia: 'Abia State High Court (Civil Procedure) Rules — confirm current edition.',
-  Ebonyi: 'Ebonyi State High Court (Civil Procedure) Rules — confirm current edition.',
-  Rivers: 'Rivers State High Court (Civil Procedure) Rules 2010 — confirm current edition.',
-  Oyo: 'Oyo State High Court (Civil Procedure) Rules 2010 — confirm current edition.',
-  Kano: 'Kano State High Court (Civil Procedure) Rules — confirm current edition.',
-  Kaduna: 'Kaduna State High Court (Civil Procedure) Rules 2007 — confirm current edition.',
-  Delta: 'Delta State High Court (Civil Procedure) Rules 2009 — confirm current edition.',
-  Ogun: 'Ogun State High Court (Civil Procedure) Rules — confirm current edition.',
-};
+export const STATE_COURT_RULES = Object.fromEntries(NIGERIAN_STATES.map(s => [s.name,
+  `${highCourtName(s.name)}: verify the operative Civil Procedure Rules, amendments and applicable practice directions for the relevant date and proceeding. Check frontloading, pre-action requirements, service and ADR only against confirmed text; no edition or requirement is presumed current.`
+]));
 
 // ---- Rules of Professional Conduct for Legal Practitioners 2007 -------------
 // Curated key rules (paraphrased). Confirm exact wording against the RPC 2007.
@@ -389,3 +376,4 @@ ________________________
 For: [FIRM]`,
   },
 ];
+

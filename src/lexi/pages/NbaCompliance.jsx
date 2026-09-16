@@ -34,14 +34,8 @@ const CPD_CATEGORIES = [
   { value: 'other',            label: 'Other' },
 ];
 
-const NBA_BRANCHES = [
-  'Lagos', 'Abuja (FCT)', 'Port Harcourt', 'Kano', 'Ibadan', 'Enugu',
-  'Onitsha', 'Benin', 'Kaduna', 'Ilorin', 'Warri', 'Calabar', 'Owerri',
-  'Umuahia', 'Abakaliki', 'Akure', 'Asaba', 'Jos', 'Maiduguri', 'Other',
-];
-
 const DEFAULT_DATA = {
-  profile: { memberNo: '', callYear: '', barNumber: '', branchName: 'Lagos', isSan: false },
+  profile: { memberNo: '', callYear: '', barNumber: '', branchName: '', isSan: false },
   apc: {
     current: {
       year: YEAR, status: 'pending',
@@ -267,8 +261,8 @@ function ApcTab({ data, onUpdate, showToast }) {
           <Input label="NBA Member Number" value={profileForm.memberNo} onChange={e => setProfileForm(p => ({ ...p, memberNo: e.target.value }))} placeholder="e.g. NBA/LAG/0001234" />
           <Input label="Year Called to Bar" value={profileForm.callYear} onChange={e => setProfileForm(p => ({ ...p, callYear: e.target.value }))} placeholder="e.g. 2015" />
           <Input label="Bar Number / Enrolment Number" value={profileForm.barNumber} onChange={e => setProfileForm(p => ({ ...p, barNumber: e.target.value }))} placeholder="e.g. 012345" />
-          <Select label="NBA Branch" value={profileForm.branchName} onChange={e => setProfileForm(p => ({ ...p, branchName: e.target.value }))}
-            options={NBA_BRANCHES.map(b => ({ value: b, label: `${b} Branch` }))} />
+            <Input label="NBA Branch (actual branch name)" value={profileForm.branchName} onChange={e => setProfileForm(p => ({ ...p, branchName: e.target.value }))}
+              placeholder="Enter your branch anywhere in Nigeria; use the name on your receipt" />
         </div>
         <Toggle checked={profileForm.isSan} onChange={v => setProfileForm(p => ({ ...p, isSan: v }))} label="Senior Advocate of Nigeria (SAN)" hint="Affects fee calculations and compliance requirements." />
       </Card>
@@ -549,13 +543,13 @@ function CpdTab({ data, onUpdate, showToast }) {
 // ── Branch Dues Tab ───────────────────────────────────────────────────────────
 function BranchDuesTab({ data, onUpdate, showToast }) {
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ year: YEAR, branchName: data.profile.branchName || 'Lagos', amount: '', paymentDate: '', status: 'paid', receiptNo: '', notes: '' });
+  const [form, setForm] = useState({ year: YEAR, branchName: data.profile.branchName || '', amount: '', paymentDate: '', status: 'paid', receiptNo: '', notes: '' });
 
   const sorted = useMemo(() => [...data.branchDues].sort((a, b) => b.year - a.year), [data.branchDues]);
   const currentYear = sorted.find(d => d.year === YEAR);
 
   const save = () => {
-    if (!form.amount || !form.paymentDate) { showToast('warning', 'Amount and payment date required.'); return; }
+    if (!form.branchName.trim() || !form.amount || !form.paymentDate) { showToast('warning', 'Actual branch name, amount and payment date required.'); return; }
     const existing = data.branchDues.findIndex(d => d.year === Number(form.year) && d.branchName === form.branchName);
     let dues;
     if (existing >= 0) {
@@ -584,7 +578,7 @@ function BranchDuesTab({ data, onUpdate, showToast }) {
             <p className="text-sm text-slate-500 mt-0.5">Annual dues paid to your NBA Branch.</p>
           </div>
           <Button size="sm" onClick={() => {
-            setForm({ year: YEAR, branchName: data.profile.branchName || 'Lagos', amount: '', paymentDate: '', status: 'paid', receiptNo: '', notes: '' });
+            setForm({ year: YEAR, branchName: data.profile.branchName || '', amount: '', paymentDate: '', status: 'paid', receiptNo: '', notes: '' });
             setShowModal(true);
           }} leftIcon={<Plus className="w-4 h-4" />}>Record Payment</Button>
         </div>
@@ -640,8 +634,8 @@ function BranchDuesTab({ data, onUpdate, showToast }) {
         <div className="space-y-3">
           <div className="grid sm:grid-cols-2 gap-3">
             <Input label="Year" type="number" value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))} />
-            <Select label="Branch" value={form.branchName} onChange={e => setForm(f => ({ ...f, branchName: e.target.value }))}
-              options={NBA_BRANCHES.map(b => ({ value: b, label: `${b} Branch` }))} />
+            <Input label="Actual NBA branch *" value={form.branchName} onChange={e => setForm(f => ({ ...f, branchName: e.target.value }))}
+              placeholder="Enter the branch named on your payment receipt" />
             <Input label="Amount Paid (₦) *" type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
             <Input label="Payment Date *" type="date" value={form.paymentDate} onChange={e => setForm(f => ({ ...f, paymentDate: e.target.value }))} />
             <Input label="Receipt No." value={form.receiptNo} onChange={e => setForm(f => ({ ...f, receiptNo: e.target.value }))} />
@@ -704,3 +698,4 @@ export function NbaCompliance() {
     </div>
   );
 }
+

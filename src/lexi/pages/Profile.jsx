@@ -18,6 +18,7 @@ import {
   PageHeader, PasswordInput,
 } from '../components/ui.jsx';
 import { formatDateTime, formatDate, downloadBlob, cn } from '../utils.js';
+import { NIGERIAN_JURISDICTIONS, normalizeJurisdiction, FEDERAL_JURISDICTION } from '../jurisdictions.js';
 
 const TABS = [
   { id: 'firm',     label: 'Profile & Firm',  icon: User      },
@@ -151,7 +152,7 @@ function FirmTab() {
   const { profile, setProfile, showToast, audit } = useApp();
   const [f, setF] = useState(profile);
   const save = () => {
-    setProfile(f);
+    setProfile({ ...f, defaultJurisdiction: normalizeJurisdiction(f.defaultJurisdiction) || FEDERAL_JURISDICTION });
     audit('SETTINGS_UPDATE', 'profile');
     showToast('success', 'Profile saved.');
   };
@@ -171,6 +172,9 @@ function FirmTab() {
       </div>
       <Input label="Address" value={f.address || ''}
         onChange={(e) => setF({ ...f, address: e.target.value })} />
+      <Select label="Default research jurisdiction (not proof of matter forum)" value={normalizeJurisdiction(f.defaultJurisdiction) || FEDERAL_JURISDICTION}
+        onChange={e => setF({ ...f, defaultJurisdiction: e.target.value })}
+        options={NIGERIAN_JURISDICTIONS.map(j => ({ value: j, label: j }))} />
       <Input
         label="Beta feedback email (optional)"
         value={f.feedbackEmail || ''}

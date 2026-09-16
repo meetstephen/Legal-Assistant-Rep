@@ -15,7 +15,9 @@ import { buildSystemPrompt, wrapDocument } from '../prompts.js';
 import { extractDocument, ACCEPTED_DOC_TYPES } from '../docParse.js';
 import { Card, Button, Textarea, Select, Badge, Toggle, PageHeader } from '../components/ui.jsx';
 import { AiResult } from '../components/AiResult.jsx';
-import { cn } from '../utils.js';
+import { cn, todayISO } from '../utils.js';
+import { JurisdictionFields } from '../components/JurisdictionFields.jsx';
+import { buildJurisdictionBrief } from '../jurisdictions.js';
 
 const ICON_MAP = {
   MessageSquare, Search, FileText, BookOpen, ChevronRight, Target, Scale, ClipboardCheck,
@@ -31,6 +33,7 @@ export function AIAssistant() {
   const [groundOverride, setGroundOverride] = useState(webGrounding);
   const [thinking, setThinking] = useState(true);
   const [input, setInput] = useState('');
+  const [scope, setScope] = useState({ jurisdiction: '', court: '', division: '', lawAsAt: todayISO() });
 
   // Prefill from another page (e.g. Templates → "Use in AI").
   React.useEffect(() => {
@@ -61,11 +64,11 @@ export function AIAssistant() {
       webGrounding: groundOverride,
       query: input || (doc ? doc.name : ''),
       firmName: profile.firmName,
-      jurisdiction: profile.defaultJurisdiction,
+      jurisdiction: scope.jurisdiction,
     });
 
   const composeUser = (extra) => {
-    const segments = [];
+    const segments = [buildJurisdictionBrief(scope)];
     if (input.trim()) segments.push(input.trim());
     if (doc) segments.push(wrapDocument(doc.sanitized));
     if (extra) segments.push(extra);
@@ -73,6 +76,7 @@ export function AIAssistant() {
   };
 
   const runMain = (extra, overrideTask) => {
+    if (!scope.jurisdiction) return;
     ai.run({
       systemInstruction: systemFor(overrideTask),
       userText: composeUser(extra),
@@ -106,7 +110,7 @@ export function AIAssistant() {
   };
 
   const runDocAction = (action) => {
-    if (!doc) return;
+    if (!doc || !scope.jurisdiction) return;
     setTaskId(action.id === 'risks' ? 'contract' : taskId);
     ai.run({
       systemInstruction: buildSystemPrompt({
@@ -115,16 +119,16 @@ export function AIAssistant() {
         webGrounding: groundOverride,
         query: doc.name,
         firmName: profile.firmName,
-        jurisdiction: profile.defaultJurisdiction,
+        jurisdiction: scope.jurisdiction,
       }),
-      userText: `${action.instruction}\n\n${wrapDocument(doc.sanitized)}`,
+      userText: `${buildJurisdictionBrief(scope)}\n\n${action.instruction}\n\n${wrapDocument(doc.sanitized)}`,
       mode,
       webGrounding: groundOverride,
       thinking,
     });
   };
 
-  const canRun = (input.trim() || doc) && !ai.running;
+  const canRun = Boolean(scope.jurisdiction && (input.trim() || doc) && !ai.running && !docBusy);
 
   return (
     <div className="space-y-6">
@@ -134,6 +138,7 @@ export function AIAssistant() {
         subtitle="Reasons before it answers · grounded in Nigerian law · put it online for real sources"
         gradient="from-violet-500 to-fuchsia-500"
       />
+      <Card variant="glass"><JurisdictionFields scope={scope} onChange={next => { ai.reset(); followup.reset(); setScope(next); }} /></Card>
 
       {!aiReady && (
         <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
@@ -266,17 +271,17 @@ export function AIAssistant() {
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={() => followup.run({
               systemInstruction: buildSystemPrompt({ taskId: 'analysis', modeId: 'standard', webGrounding: false, query: input, firmName: profile.firmName }),
-              userText: `From the analysis below, list the discrete legal issues raised, each with the governing rule and the key authority.\n\nANALYSIS:\n${ai.cleanText || ai.text}`,
+                userText: `${buildJurisdictionBrief(scope)}\n\nFrom the analysis below, list the discrete legal issues raised, each with the governing rule and the key authority.\n\nANALYSIS:\n${ai.cleanText || ai.text}`,
               mode: 'standard', webGrounding: false,
             })} leftIcon={<Lightbulb className="w-4 h-4" />}>Spot issues</Button>
             <Button size="sm" variant="secondary" onClick={() => followup.run({
               systemInstruction: 'You are a Nigerian litigation strategist. Generate the sharpest follow-up questions a lawyer should ask to strengthen the matter and close evidential gaps.',
-              userText: `Suggest 6-10 targeted follow-up questions based on:\n\n${ai.cleanText || ai.text}`,
+                userText: `${buildJurisdictionBrief(scope)}\n\nSuggest 6-10 targeted follow-up questions based on:\n\n${ai.cleanText || ai.text}`,
               mode: 'brief', webGrounding: false,
             })} leftIcon={<HelpCircle className="w-4 h-4" />}>Follow-up questions</Button>
             <Button size="sm" variant="secondary" onClick={() => followup.run({
               systemInstruction: 'You are a candid Nigerian senior advocate. Assess the strength of the position on a 0-100 scale with a clear label (Weak/Arguable/Strong), the main risks, and what would move the needle. Be honest, not optimistic.',
-              userText: `Give a Case Strength assessment for:\n\n${ai.cleanText || ai.text}`,
+                userText: `${buildJurisdictionBrief(scope)}\n\nGive a Case Strength assessment for:\n\n${ai.cleanText || ai.text}`,
               mode: 'brief', webGrounding: false,
             })} leftIcon={<Gauge className="w-4 h-4" />}>Case strength meter</Button>
           </div>
@@ -417,3 +422,4 @@ function AnalysisComparison({ mode, grounding }) {
     </Card>
   );
 }
+
