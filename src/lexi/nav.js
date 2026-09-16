@@ -43,6 +43,7 @@ export const NAV_SECTIONS = [
     title: '🔧 Tools',
     items: [
       { id: 'tools',             label: 'Tools',             icon: Wrench      },
+      { id: 'practice-directions', label: 'State Practice Directions', icon: BookOpen },
       { id: 'updates',           label: 'Practice Updates',  icon: Newspaper   },
       { id: 'authority',         label: 'Authority Verify',  icon: ShieldCheck },
       { id: 'land-transactions', label: 'Land Transactions', icon: Building2   },
