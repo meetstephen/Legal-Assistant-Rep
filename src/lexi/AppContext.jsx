@@ -22,6 +22,7 @@ import {
 } from './supabase.js';
 import { evaluateRateLimit, prune, RATE_DEFAULTS } from './rateLimit.js';
 import { hashPasscode, verifyPasscode, evaluateLockout, registerFailure, resetLockout } from './auth.js';
+import { stableSessionUser, watchAuthSession } from './authSession.js';
 
 const AppContext = createContext(null);
 
@@ -91,6 +92,9 @@ export function AppProvider({ children }) {
   // ── auth / cloud sync ─────────────────────────────────────────────────────
   const [user, setUser]               = useState(null);
   const [authLoading, setAuthLoading] = useState(SUPABASE_ENABLED);
+  const [authError, setAuthError] = useState('');
+  const workspaceOwnerRef = useRef(null);
+  const [workspaceReadyFor, setWorkspaceReadyFor] = useState(null);
   const [cloudStatus, setCloudStatus] = useState('idle');
   const [recovery, setRecovery]       = useState(false);
   const [accountRole, setAccountRole] = useState('lawyer');
@@ -284,6 +288,7 @@ export function AppProvider({ children }) {
       STORAGE_KEYS.ANALYSES, STORAGE_KEYS.AI_HISTORY, STORAGE_KEYS.AI_USAGE, STORAGE_KEYS.AUDIT_LOG,
       STORAGE_KEYS.CHAT, STORAGE_KEYS.ADMIN_CASES, STORAGE_KEYS.COURT_DIARY,
       STORAGE_KEYS.NCMS_COMPLIANCE, STORAGE_KEYS.API_KEY,
+      STORAGE_KEYS.TEMPLATES, STORAGE_KEYS.PROFILE,
     ].forEach((k) => storage.remove(k));
     setCases([]); setClients([]); setTasks([]); setTimeEntries([]); setAnalyses([]);
     setAiHistory([]); setAiUsage([]); setAuditLog([]); setTemplates(DEFAULT_TEMPLATES);
@@ -294,41 +299,40 @@ export function AppProvider({ children }) {
   // ── initialise Supabase auth ──────────────────────────────────────────────
   useEffect(() => {
     if (!SUPABASE_ENABLED) return undefined;
-    let active = true;
-    (async () => {
-      try {
-        const u = await getSessionUser();
-        if (active) setUser(u);
-      } catch { /* ignore */ } finally {
-        if (active) setAuthLoading(false);
-      }
-    })();
-    const unsub = onAuthChange((u, event) => {
-      setUser(u);
-      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+    const session = watchAuthSession({
+      getUser: getSessionUser, subscribe: onAuthChange,
+      onUser: u => setUser(previous => stableSessionUser(previous, u)),
+      onRecovery: setRecovery, onLoading: setAuthLoading, onError: setAuthError,
     });
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        getSessionUser().then((u) => { if (active) setUser(u); }).catch(() => {});
+        void session.refresh();
       }
     };
     document.addEventListener('visibilitychange', onVisible);
-    return () => { active = false; unsub(); document.removeEventListener('visibilitychange', onVisible); };
+    return () => { session.dispose(); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
   // ── on sign-in: pull workspace; on sign-out: clear ────────────────────────
   useEffect(() => {
-    if (!SUPABASE_ENABLED) return undefined;
+    if (!SUPABASE_ENABLED || authLoading || authError) return undefined;
     let cancelled = false;
     if (user) {
+      if (workspaceOwnerRef.current && workspaceOwnerRef.current !== user.id) resetLocalData();
+      workspaceOwnerRef.current = user.id;
       syncReadyRef.current = false;
       setCloudStatus('syncing');
       (async () => {
+        let loaded = false;
         try {
           // Ensure the profile exists, then load the server-authoritative role.
           await touchOwnProfile(user.id, user.email);
           const ownProfile = await getOwnProfile(user.id);
           if (cancelled) return;
+          if (ownProfile?.status === 'suspended') {
+            try { sessionStorage.setItem('lexi:suspended', '1'); } catch { /* unavailable storage */ }
+            await sbSignOut(); setUser(null); setRecovery(false); return;
+          }
           setAccountRole(ownProfile?.role || 'lawyer');
           const data = await loadWorkspace(user.id);
           if (cancelled) return;
@@ -336,21 +340,25 @@ export function AppProvider({ children }) {
             Object.entries(data).forEach(([k, v]) => storage.set(k, v));
             rehydrateFromStorage();
           }
+          loaded = true;
+          setWorkspaceReadyFor(user.id);
           setCloudStatus('synced');
         } catch {
           if (!cancelled) setCloudStatus('error');
         } finally {
-          if (!cancelled) syncReadyRef.current = true;
+          if (!cancelled) syncReadyRef.current = loaded;
         }
       })();
     } else {
       syncReadyRef.current = false;
+      workspaceOwnerRef.current = null;
+      setWorkspaceReadyFor(null);
       resetLocalData();
       setAccountRole('lawyer');
       setCloudStatus('idle');
     }
     return () => { cancelled = true; };
-  }, [user, rehydrateFromStorage, resetLocalData]);
+  }, [user, authLoading, authError, rehydrateFromStorage, resetLocalData]);
 
   // ── debounced cloud save ──────────────────────────────────────────────────
   useEffect(() => {
@@ -388,10 +396,10 @@ export function AppProvider({ children }) {
       CLOUD_KEYS.forEach((k) => { const v = storage.get(k, null); if (v !== null) payload[k] = v; });
       const snapshot = JSON.stringify(payload);
       if (snapshot === lastSnapshot) return; // nothing changed — skip the write
-      lastSnapshot = snapshot;
       try {
         setCloudStatus('syncing');
         await saveWorkspace(user.id, payload);
+        lastSnapshot = snapshot;
         setCloudStatus('synced');
       } catch { setCloudStatus('error'); }
     };
@@ -400,10 +408,10 @@ export function AppProvider({ children }) {
   }, [user]);
 
   // ── auth actions ──────────────────────────────────────────────────────────
-  const signIn  = useCallback(async (email, password) => { const u = await signInWithPassword(email, password); setUser(u); return u; }, []);
+  const signIn  = useCallback(async (email, password) => { const u = await signInWithPassword(email, password); setUser(previous => stableSessionUser(previous, u)); return u; }, []);
   const signUp  = useCallback((email, password) => signUpWithPassword(email, password), []);
   const magicLink = useCallback((email) => signInWithMagicLink(email), []);
-  const doSignOut = useCallback(async () => { await sbSignOut(); setUser(null); audit('LOGOUT', ''); }, [audit]);
+  const doSignOut = useCallback(async () => { await sbSignOut(); setRecovery(false); setUser(null); audit('LOGOUT', ''); }, [audit]);
 
   // ── mid-session suspension enforcement ──────────────────────────────────
   // Banning a Supabase user blocks future logins/refreshes but does NOT
@@ -425,7 +433,7 @@ export function AppProvider({ children }) {
       setAccountRole(ownProfile.role || 'lawyer');
       if (ownProfile.status === 'suspended') {
         try { sessionStorage.setItem('lexi:suspended', '1'); } catch { /* private mode or storage unavailable — non-fatal */ }
-        doSignOut();
+        void doSignOut().catch(() => showToast('error', 'Could not complete sign out. Please retry.'));
       }
     };
 
@@ -440,7 +448,7 @@ export function AppProvider({ children }) {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', checkStatus);
     };
-  }, [user, doSignOut]);
+  }, [user, doSignOut, showToast]);
   const requestPasswordReset = useCallback((email) => sendPasswordReset(email), []);
   const changePassword = useCallback(async (newPassword) => {
     await sbUpdatePassword(newPassword);
@@ -513,7 +521,7 @@ export function AppProvider({ children }) {
     webGrounding, setWebGrounding, profile, setProfile,
     // Admin status — computed from authenticated email, never stored.
     // Also exposed so pages can read authLoading before acting on isAdmin.
-    isAdmin, authLoading,
+    isAdmin, authLoading, authError,
     // AI ready: admin can use proxy (server key); non-admin needs own key.
     // If the server proxy is configured (VITE_USE_PROXY=true in Vercel), everyone
     // is AI-ready and the admin needs no personal key whatsoever.
@@ -524,7 +532,7 @@ export function AppProvider({ children }) {
     authMisconfigured: AUTH_MISCONFIGURED,
     // FAILS CLOSED: a misconfigured production build (Supabase unset on a
     // deployed URL) must never be treated as an authenticated session.
-    user, cloudStatus,
+    user, cloudStatus, workspaceLoading: !!user && workspaceReadyFor !== user.id,
     isAuthed: AUTH_MISCONFIGURED ? false : (!SUPABASE_ENABLED || !!user),
     recovery, signIn, signUp, magicLink, signOut: doSignOut,
     requestPasswordReset, changePassword,
@@ -546,8 +554,8 @@ export function AppProvider({ children }) {
   }), [
     isDark, toggleTheme, apiKey, setApiKey, model, setModel,
     webGrounding, setWebGrounding, profile, setProfile,
-    isAdmin, authLoading,
-    user, cloudStatus, recovery, signIn, signUp, magicLink, doSignOut,
+    isAdmin, authLoading, authError,
+    user, cloudStatus, workspaceReadyFor, recovery, signIn, signUp, magicLink, doSignOut,
     requestPasswordReset, changePassword,
     lockEnabled, unlocked, unlockWithPasscode, setPasscode, clearPasscode, lockNow,
     guardAi, activePage, pageParams, navigate,
@@ -564,3 +572,4 @@ export function AppProvider({ children }) {
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
+

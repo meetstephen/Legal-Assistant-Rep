@@ -95,15 +95,18 @@ function GroundingSwitch() {
 
 function AccountBar({ onAction }) {
   const { supabaseEnabled, user, signOut, lockEnabled, lockNow, showToast } = useApp();
+  const [signingOut, setSigningOut] = useState(false);
   const canSignOut = supabaseEnabled && !!user;
   const canLock = lockEnabled;
   if (!canSignOut && !canLock) return null;
 
   const doLock = () => { lockNow(); onAction && onAction(); };
   const doSignOut = async () => {
-    await signOut();
-    showToast('info', 'Signed out.');
-    onAction && onAction();
+    if (signingOut) return;
+    setSigningOut(true);
+    try { await signOut(); showToast('info', 'Signed out.'); onAction && onAction(); }
+    catch (e) { showToast('error', e.message || 'Could not sign out. Please retry.'); }
+    finally { setSigningOut(false); }
   };
 
   return (
@@ -125,10 +128,11 @@ function AccountBar({ onAction }) {
         )}
         {canSignOut && (
           <button
-            onClick={doSignOut}
+             onClick={doSignOut}
+            disabled={signingOut}
             className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
           >
-            <LogOut className="w-3.5 h-3.5" /> Sign out
+            <LogOut className="w-3.5 h-3.5" /> {signingOut ? 'Signing out…' : 'Sign out'}
           </button>
         )}
       </div>
@@ -266,3 +270,4 @@ export function Layout({ children }) {
     </div>
   );
 }
+

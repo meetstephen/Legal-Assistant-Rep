@@ -14,6 +14,7 @@ import { Scale, Loader2, Mail, KeyRound, LogIn, UserPlus, Sparkles, Lock, ArrowL
 import { useApp } from '../AppContext.jsx';
 import { BRAND_LABEL, TAGLINE } from '../runtime.js';
 import { Button, Input, PasswordInput } from './ui.jsx';
+import { authErrorMessage, signUpNotice } from '../authSession.js';
 
 function Shell({ children, subtitle }) {
   return (
@@ -49,6 +50,8 @@ function LoginScreen() {
   const [forgot, setForgot] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [suspendedNotice, setSuspendedNotice] = useState(false);
@@ -66,7 +69,12 @@ function LoginScreen() {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busy) return;
     if (!email.trim()) return;
+    setError('');
+    if (!forgot && mode === 'signup' && (password.length < 8 || password !== confirm)) {
+      setError(password.length < 8 ? 'Use at least 8 characters.' : 'Passwords do not match.'); return;
+    }
     setBusy(true);
     setNotice('');
     try {
@@ -76,15 +84,16 @@ function LoginScreen() {
       } else if (mode === 'signin') {
         await signIn(email.trim(), password);
       } else if (mode === 'signup') {
-        await signUp(email.trim(), password);
-        setNotice('Account created. Check your email to confirm, then sign in.');
+        const data = await signUp(email.trim(), password);
+        setNotice(signUpNotice(data));
+        setPassword(''); setConfirm('');
         setMode('signin');
       } else {
         await magicLink(email.trim());
         setNotice('Check your email for a sign-in link.');
       }
     } catch (err) {
-      showToast('error', err.message || 'Authentication failed.');
+      const message = authErrorMessage(err); setError(message); showToast('error', message);
     } finally {
       setBusy(false);
     }
@@ -94,13 +103,14 @@ function LoginScreen() {
     return (
       <Shell subtitle="Reset your password">
         <form onSubmit={submit} className="space-y-4">
-          <button type="button" onClick={() => { setForgot(false); setNotice(''); }} className="flex items-center gap-1 text-sm text-slate-500 hover:text-emerald-600">
+          <button type="button" disabled={busy} onClick={() => { setForgot(false); setNotice(''); setError(''); }} className="flex items-center gap-1 text-sm text-slate-500 hover:text-emerald-600">
             <ArrowLeft className="w-4 h-4" /> Back to sign in
           </button>
           <p className="text-sm text-slate-500 dark:text-slate-400">Enter your email and we&apos;ll send a secure link to set a new password.</p>
           <Input label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@firm.com" leftIcon={<Mail className="w-4 h-4" />} required />
           <Button type="submit" className="w-full" size="lg" isLoading={busy} leftIcon={<Mail className="w-5 h-5" />}>Send reset link</Button>
-          {notice && <p className="text-sm text-emerald-600 dark:text-emerald-400 text-center">{notice}</p>}
+          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+          {notice && <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400 text-center">{notice}</p>}
         </form>
       </Shell>
     );
@@ -116,7 +126,7 @@ function LoginScreen() {
       )}
       <div className="flex gap-1 mb-5 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
         {Object.entries(MODES).map(([key, m]) => (
-          <button key={key} onClick={() => { setMode(key); setNotice(''); }}
+          <button key={key} type="button" disabled={busy} aria-pressed={mode === key} onClick={() => { setMode(key); setNotice(''); setError(''); setPassword(''); setConfirm(''); }}
             className={`flex-1 text-sm font-medium rounded-lg py-1.5 transition-colors ${mode === key ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500'}`}>
             {m.label}
           </button>
@@ -125,36 +135,41 @@ function LoginScreen() {
       <form onSubmit={submit} className="space-y-4">
         <Input label="Email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@firm.com" leftIcon={<Mail className="w-4 h-4" />} required />
         {mode !== 'magic' && (
-          <PasswordInput label="Password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" leftIcon={<KeyRound className="w-4 h-4" />} hint={mode === 'signup' ? 'At least 8 characters with a mix of letters and numbers.' : undefined} required />
+          <PasswordInput label="Password" disabled={busy} minLength={mode === 'signup' ? 8 : undefined} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" leftIcon={<KeyRound className="w-4 h-4" />} hint={mode === 'signup' ? 'At least 8 characters; use a strong, unique password.' : undefined} required />
         )}
+        {mode === 'signup' && <PasswordInput label="Confirm password" autoComplete="new-password" disabled={busy} minLength={8} value={confirm} onChange={e => setConfirm(e.target.value)} required />}
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
         <Button type="submit" className="w-full" size="lg" isLoading={busy} leftIcon={<Icon className="w-5 h-5" />}>{MODES[mode].cta}</Button>
       </form>
       {mode === 'signin' && (
-        <button onClick={() => { setForgot(true); setNotice(''); }} className="mt-3 w-full text-center text-sm text-slate-500 hover:text-emerald-600">
+        <button disabled={busy} onClick={() => { setForgot(true); setNotice(''); setError(''); setPassword(''); }} className="mt-3 w-full text-center text-sm text-slate-500 hover:text-emerald-600">
           Forgot your password?
         </button>
       )}
-      {notice && <p className="mt-4 text-sm text-emerald-600 dark:text-emerald-400 text-center">{notice}</p>}
+      {notice && <p role="status" className="mt-4 text-sm text-emerald-600 dark:text-emerald-400 text-center">{notice}</p>}
     </Shell>
   );
 }
 
 function UpdatePasswordScreen() {
-  const { changePassword, showToast } = useApp();
+  const { changePassword, signOut, showToast } = useApp();
   const [pw, setPw] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const submit = async (e) => {
     e.preventDefault();
-    if (pw.length < 8) { showToast('warning', 'Use at least 8 characters.'); return; }
-    if (pw !== confirm) { showToast('warning', 'Passwords do not match.'); return; }
+    if (busy) return;
+    setError('');
+    if (pw.length < 8) { setError('Use at least 8 characters.'); return; }
+    if (pw !== confirm) { setError('Passwords do not match.'); return; }
     setBusy(true);
     try {
       await changePassword(pw);
       showToast('success', 'Password updated. You are signed in.');
     } catch (err) {
-      showToast('error', err.message || 'Could not update password.');
+      const message = authErrorMessage(err); setError(message); showToast('error', message);
     } finally {
       setBusy(false);
     }
@@ -166,6 +181,11 @@ function UpdatePasswordScreen() {
         <PasswordInput label="New password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} leftIcon={<KeyRound className="w-4 h-4" />} hint="At least 8 characters." required />
         <PasswordInput label="Confirm new password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} leftIcon={<KeyRound className="w-4 h-4" />} required />
         <Button type="submit" className="w-full" size="lg" isLoading={busy} leftIcon={<ShieldCheck className="w-5 h-5" />}>Update password</Button>
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        <Button type="button" variant="secondary" disabled={busy} onClick={async () => {
+          setBusy(true); setError('');
+          try { await signOut(); } catch (e) { setError(authErrorMessage(e)); } finally { setBusy(false); }
+        }}>Cancel and return to sign in</Button>
       </form>
     </Shell>
   );
@@ -230,7 +250,7 @@ function LockScreen() {
 }
 
 export function AuthGate({ children }) {
-  const { supabaseEnabled, authMisconfigured, authLoading, isAuthed, recovery, isLocked } = useApp();
+  const { supabaseEnabled, authMisconfigured, authLoading, authError, isAuthed, recovery, isLocked, workspaceLoading, cloudStatus, signOut, showToast } = useApp();
 
   // FAIL CLOSED: a deployed build with no way to authenticate must never
   // fall through to "local mode" (which treats every visitor as admin).
@@ -254,6 +274,7 @@ export function AuthGate({ children }) {
   }
 
   if (supabaseEnabled) {
+    if (authError) return <Shell subtitle="Could not restore your session"><p role="alert" className="text-sm text-red-600 mb-4">{authErrorMessage({ message: authError })}</p><Button onClick={() => window.location.reload()}>Retry connection</Button>{isAuthed && <Button variant="secondary" onClick={() => { void signOut().catch(e => showToast('error', authErrorMessage(e))); }}>Sign out</Button>}</Shell>;
     if (authLoading) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -261,8 +282,15 @@ export function AuthGate({ children }) {
         </div>
       );
     }
-    if (recovery) return <UpdatePasswordScreen />;
+    if (recovery && isAuthed) return <UpdatePasswordScreen />;
     if (!isAuthed) return <LoginScreen />;
+    if (workspaceLoading) return <Shell subtitle="Loading your workspace">
+      {cloudStatus === 'error' ? <div className="space-y-3">
+        <p role="alert" className="text-sm text-red-600">You are signed in, but your cloud workspace could not be loaded safely. Retry before editing or syncing data.</p>
+        <Button onClick={() => window.location.reload()}>Retry workspace loading</Button>
+        <Button variant="secondary" onClick={() => { void signOut().catch(e => showToast('error', authErrorMessage(e))); }}>Sign out</Button>
+      </div> : <p role="status" className="flex items-center gap-2 text-sm"><Loader2 className="w-5 h-5 animate-spin" />Loading your private workspace…</p>}
+    </Shell>;
     // Cloud mode: Supabase IS the login wall — don't also impose the device
     // passcode (that would be a confusing double login).
     return children;
@@ -274,3 +302,4 @@ export function AuthGate({ children }) {
 
   return children;
 }
+

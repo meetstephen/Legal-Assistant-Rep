@@ -38,6 +38,7 @@ const CLOUD_LABEL = {
 // ---------------------------------------------------------------------------
 function AccountCard() {
   const { supabaseEnabled, user, cloudStatus, signOut, lockEnabled, lockNow, profile, showToast } = useApp();
+  const [signingOut, setSigningOut] = useState(false);
 
   if (supabaseEnabled) {
     const c = CLOUD_LABEL[cloudStatus] || CLOUD_LABEL.idle;
@@ -60,7 +61,14 @@ function AccountCard() {
         <Button
           variant="secondary" size="sm"
           leftIcon={<LogOut className="w-4 h-4" />}
-          onClick={async () => { await signOut(); showToast('info', 'Signed out.'); }}
+          isLoading={signingOut}
+          onClick={async () => {
+            if (signingOut) return;
+            setSigningOut(true);
+            try { await signOut(); showToast('info', 'Signed out.'); }
+            catch (e) { showToast('error', e.message || 'Could not sign out. Please retry.'); }
+            finally { setSigningOut(false); }
+          }}
         >
           Sign out
         </Button>
@@ -706,3 +714,4 @@ function DataTab() {
     </Card>
   );
 }
+
