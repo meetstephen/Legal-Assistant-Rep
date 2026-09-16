@@ -14,6 +14,7 @@ describe('saved library', () => {
 describe('clean legal document export', () => {
   const text = '# Advice\n**Important:** verify the law.\n- Review source\n| State | Amount |\n| --- | --- |\n| Ebonyi | ₦50,000 |\nhttps://example.org/source';
   it('creates real table blocks and escapes executable markup', () => { expect(exportBlocks(text).find(block => block.type === 'table').rows).toHaveLength(2); expect(exportBodyHtml('<script>alert(1)</script>')).not.toContain('<script>'); });
+  it('preserves literal pipes within invoice description cells', () => { expect(exportBlocks('| Description | Hours |\n| --- | --- |\n| Review \\| advice | 2 |')[0].rows[1]).toEqual(['Review | advice', '2']); });
   it('renders print tables, readable margins and excludes banking details', () => { const html = htmlDocument(text, { profile: { bankDetails: 'PRIVATE BANK ACCOUNT' } }); expect(html).toContain('<table>'); expect(html).toContain('thead'); expect(html).toContain('25mm'); expect(html).not.toContain('PRIVATE BANK ACCOUNT'); });
   it('creates a genuine OOXML zip which Word parsers can read, preserving tables and currency', async () => {
     const blob = await createDocxBlob(text, { title: 'Legal Advice', profile: { firmName: 'Test Chambers' } });

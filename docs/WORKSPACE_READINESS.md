@@ -22,6 +22,6 @@ A generated DOCX fixture passed text round-trip checks, including currency, tabl
 
 ## Dependencies and email
 
-Vite and Vitest have been upgraded to patched major versions and the lockfile refreshed. The audit at implementation reported zero known vulnerabilities; this is not a guarantee against future advisories. Vite requires Node 20.19+ or 22.12+; CI uses the latest Node 20.
+Vite and Vitest have been upgraded to patched major versions and the lockfile refreshed. The audit at implementation reported zero known vulnerabilities; this is not a guarantee against future advisories. Vite requires Node 20.19+ or 22.12+; CI uses the latest Node 22 and blocks high/critical dependency advisories.
 
 Public authentication email still requires owner-configured SMTP. See [public email setup](PUBLIC_AUTH_EMAIL.md). No provider account, sender domain or SMTP credentials have been created/configured.

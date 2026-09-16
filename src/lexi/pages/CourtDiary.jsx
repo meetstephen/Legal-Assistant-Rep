@@ -506,13 +506,19 @@ export function CourtDiary() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const persist = useCallback((list) => {
-    saveMatters(list);
-    setMatters(list);
-  }, []);
+    try {
+      saveMatters(list);
+      setMatters(list);
+      return true;
+    } catch {
+      showToast('error', 'Court Diary could not be saved. Check browser storage before retrying.');
+      return false;
+    }
+  }, [showToast]);
 
   const addMatter = useCallback((data) => {
     const updated = [...matters, data];
-    persist(updated);
+    if (!persist(updated)) return;
     audit('DIARY_ADD', data.title);
     showToast('success', `"${data.title}" added to your diary.`);
   }, [matters, persist, audit, showToast]);
@@ -522,7 +528,7 @@ export function CourtDiary() {
     const contextChanged = previous && (previous.court !== data.court || previous.courtLocation !== data.courtLocation);
     const safeData = contextChanged ? { ...data, deadlines: (data.deadlines || []).map(dl => ({ ...dl, legacyDueDate: dl.dueDate || dl.legacyDueDate, dueDate: '', reviewedByCounsel: false })) } : data;
     const updated = matters.map((m) => m.id === data.id ? safeData : m);
-    persist(updated);
+    if (!persist(updated)) return;
     if (!data._silent) {
       audit('DIARY_UPDATE', data.title);
       showToast('success', 'Matter updated.');
@@ -531,7 +537,7 @@ export function CourtDiary() {
 
   const deleteMatter = useCallback((id) => {
     const m = matters.find((x) => x.id === id);
-    persist(matters.filter((x) => x.id !== id));
+    if (!persist(matters.filter((x) => x.id !== id))) return;
     audit('DIARY_DELETE', m?.title || id);
     showToast('success', 'Matter removed from diary.');
   }, [matters, persist, audit, showToast]);
@@ -555,7 +561,7 @@ export function CourtDiary() {
         updatedAt: new Date().toISOString(),
       };
     });
-    persist(updated);
+    if (!persist(updated)) return;
     audit('DIARY_ADJOURN', `${matters.find((m) => m.id === matterId)?.title} → ${fmtDate(form.toDate)}`);
     showToast('success', `Adjourned to ${fmtDate(form.toDate)}.`);
   }, [matters, persist, audit, showToast]);

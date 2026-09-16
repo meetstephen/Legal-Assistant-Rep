@@ -4,7 +4,7 @@ import { escapeHtml } from './utils.js';
 export function exportBlocks(content) {
   const lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
   const blocks = [];
-  const cells = line => line.trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
+  const cells = line => line.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(cell => cell.trim().replace(/\\\|/g, '|'));
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
