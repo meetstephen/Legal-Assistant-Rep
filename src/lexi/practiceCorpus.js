@@ -1,5 +1,6 @@
 import index from './data/practiceCorpusIndex.json';
 import { JURISDICTIONS, mentionsState } from './practiceDirections.js';
+import { jurisdictionId } from './jurisdictions.js';
 
 export const PRACTICE_CORPUS = index;
 export const PRACTICE_CATEGORIES = {
@@ -62,7 +63,13 @@ export function practiceScope(query = '') {
     if (/\b(service|serve|serving|summons)\b/i.test(query)) categories.push('service');
     if (/\b(general practice|compendium)\b/i.test(query)) categories.push('general');
   }
-  const states = JURISDICTIONS.filter(s => mentionsState(query, s));
+  const selected = /^SELECTED MATTER JURISDICTION: ([^.\n]+)\./m.exec(query)?.[1];
+  const selectedId = selected ? jurisdictionId(selected) : '';
+  const federalCourt = /^COURT \/ FORUM: (?:Supreme Court|Court of Appeal|Federal High Court|National Industrial Court)(?:\n|$)/m.test(query);
+  // A party's address or a named precedent must not override explicit forum scope.
+  // This corpus contains territorial instruments, not federal-court rules.
+  const states = federalCourt || selectedId === 'Federal' ? []
+    : selectedId ? [selectedId] : JURISDICTIONS.filter(s => mentionsState(query, s));
   return { states, categories };
 }
 

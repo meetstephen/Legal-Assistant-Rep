@@ -12,7 +12,9 @@ import { extractDocument, ACCEPTED_DOC_TYPES } from '../docParse.js';
 import { Card, Button, Input, Textarea, Toggle, PageHeader, Badge } from '../components/ui.jsx';
 import { AiResult } from '../components/AiResult.jsx';
 import { QuickPrecedentFinder } from '../components/QuickPrecedentFinder.jsx';
-import { cn } from '../utils.js';
+import { cn, todayISO } from '../utils.js';
+import { JurisdictionFields } from '../components/JurisdictionFields.jsx';
+import { buildJurisdictionBrief } from '../jurisdictions.js';
 
 const TABS = [
   { id: 'caselaw', label: 'Case Law & Statutes' },
@@ -30,14 +32,16 @@ export function Research() {
 
   const [docs, setDocs] = useState([]);
   const [srcQuery, setSrcQuery] = useState('');
+  const [scope, setScope] = useState({ jurisdiction: '', court: '', division: '', lawAsAt: todayISO() });
 
   const runResearch = () => {
+    if (!scope.jurisdiction) return;
     caselaw.run({
       systemInstruction: buildSystemPrompt({
         taskId: 'research', modeId: 'comprehensive', webGrounding: ground, query,
-        firmName: profile.firmName, jurisdiction: profile.defaultJurisdiction,
+        firmName: profile.firmName, jurisdiction: scope.jurisdiction,
       }),
-      userText: `Conduct Nigerian legal research on:\n\n${query}\n\nGive applicable statutes (with sections), key authorities (name + citation + court + holding), the governing principles, practical guidance, and pitfalls. Mark anything uncertain.`,
+      userText: `${buildJurisdictionBrief(scope)}\n\nConduct Nigerian legal research on:\n\n${query}\n\nGive applicable statutes (with sections), key authorities (name + citation + court + holding), the governing principles, practical guidance, and pitfalls. Mark anything uncertain.`,
       mode: 'comprehensive',
       webGrounding: ground,
     });
@@ -56,10 +60,11 @@ export function Research() {
   };
 
   const runFromSources = () => {
+    if (!scope.jurisdiction) return;
     const combined = docs.map((d) => `--- ${d.name} ---\n${wrapDocument(d.sanitized)}`).join('\n\n');
     sources.run({
-      systemInstruction: 'You are a Nigerian legal research assistant. Answer ONLY from the supplied source documents where possible; quote and cite which document supports each point. If the sources do not answer the question, say so and clearly separate any general legal knowledge you add.',
-      userText: `QUESTION:\n${srcQuery}\n\nSOURCE DOCUMENTS:\n${combined}`,
+      systemInstruction: 'You are a Nigerian legal research assistant. Answer only from the supplied source documents. Quote and pinpoint which document supports each proposition and check its jurisdiction and temporal scope. If the sources do not answer the question, say so and request the missing instrument. Do not fill gaps with general model knowledge or another state’s rules.',
+      userText: `${buildJurisdictionBrief(scope)}\n\nQUESTION:\n${srcQuery}\n\nSOURCE DOCUMENTS:\n${combined}`,
       mode: 'standard',
       webGrounding: false,
     });
@@ -68,6 +73,7 @@ export function Research() {
   return (
     <div className="space-y-6">
       <PageHeader icon={BookOpen} title="Legal Research" subtitle="Search live Nigerian case law & statutes, or research within your own documents" gradient="from-blue-400 to-indigo-500" />
+      <Card variant="glass"><JurisdictionFields scope={scope} onChange={next => { caselaw.reset(); sources.reset(); setScope(next); }} /></Card>
 
       <div className="flex gap-2">
         {TABS.map((t) => (
@@ -91,7 +97,7 @@ export function Research() {
               {caselaw.running ? (
                 <Button variant="danger" onClick={caselaw.stop} leftIcon={<Square className="w-4 h-4" />}>Stop</Button>
               ) : (
-                <Button onClick={runResearch} disabled={!query.trim()} leftIcon={<Search className="w-5 h-5" />}>Research</Button>
+                <Button onClick={runResearch} disabled={!query.trim() || !scope.jurisdiction} leftIcon={<Search className="w-5 h-5" />}>Research</Button>
               )}
             </div>
             {ground && <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Online research — results grounded in real web sources.</p>}
@@ -116,7 +122,7 @@ export function Research() {
             {sources.running ? (
               <Button variant="danger" onClick={sources.stop} leftIcon={<Square className="w-4 h-4" />}>Stop</Button>
             ) : (
-              <Button onClick={runFromSources} disabled={!docs.length || !srcQuery.trim()} leftIcon={<Sparkles className="w-5 h-5" />}>Research my sources</Button>
+              <Button onClick={runFromSources} disabled={!docs.length || !srcQuery.trim() || !scope.jurisdiction} leftIcon={<Sparkles className="w-5 h-5" />}>Research my sources</Button>
             )}
             {!docs.length && <p className="text-xs text-slate-400">Upload one or more documents (PDF/DOCX/TXT…) to ground the answer in your own materials.</p>}
           </Card>
@@ -126,3 +132,4 @@ export function Research() {
     </div>
   );
 }
+

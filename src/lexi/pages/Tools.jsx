@@ -15,10 +15,11 @@ import {
   AML_THRESHOLDS, AML_RED_FLAGS, MATTER_TYPES, COURTS,
   NIGERIAN_STATES, GEO_ZONES, STATE_COURT_RULES, RULES_OF_PROFESSIONAL_CONDUCT,
 } from '../legalData.js';
-import { computeDeadline } from '../helpers.js';
-import { Card, Button, Input, Select, Badge, PageHeader } from '../components/ui.jsx';
+import { calculateVerifiedDeadline } from '../limitationSafety.js';
+import { Card, Button, Input, Select, Badge, PageHeader, Toggle } from '../components/ui.jsx';
 import { AiResult } from '../components/AiResult.jsx';
 import { formatDate, todayISO, cn } from '../utils.js';
+import { NIGERIAN_JURISDICTIONS, normalizeJurisdiction, highCourtName, buildCourtChecklistRequest } from '../jurisdictions.js';
 
 const TABS = [
   { id: 'limitation', label: 'Limitation Periods', icon: Clock },
@@ -87,18 +88,22 @@ function Deadline() {
   const { addTask, showToast } = useApp();
   const [start, setStart] = useState(todayISO());
   const [idx, setIdx] = useState('0');
+  const [jurisdiction, setJurisdiction] = useState('');
+  const [period, setPeriod] = useState('');
+  const [source, setSource] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
   const item = LIMITATION_PERIODS[Number(idx)];
-  const deadline = useMemo(() => computeDeadline(start, item?.period), [start, item]);
+  const deadline = useMemo(() => calculateVerifiedDeadline({ startDate: start, period, jurisdiction, source, confirmed }), [start, period, jurisdiction, source, confirmed]);
 
   const createTask = () => {
     if (!deadline) return;
     const due = deadline.toISOString().slice(0, 10);
     addTask({
-      title: `Limitation deadline: ${item.cause}`,
+      title: `Provisional limitation reminder: ${item.cause} — ${jurisdiction}`,
       due,
       priority: 'high',
       status: 'todo',
-      notes: `Auto-created from the Deadline Calculator. Cause accrued ${start}; period ${item.period} (${item.basis}). VERIFY against the applicable state law before relying.`,
+      notes: `Calendar arithmetic on counsel-confirmed inputs, not independent legal verification. Jurisdiction: ${jurisdiction}. Cause: ${item.cause}. Trigger date: ${start}. Entered period: ${period}. Source/provision: ${source}. Confirm accrual, exclusions, holidays, exceptions and extensions before relying.`,
     });
     showToast('success', 'Reminder task created (High priority).');
   };
@@ -107,13 +112,19 @@ function Deadline() {
     <Card variant="glass" className="space-y-4">
       <h3 className="font-semibold text-slate-900 dark:text-white">Deadline calculator</h3>
       <div className="grid sm:grid-cols-2 gap-4">
-        <Input label="Date cause of action accrued" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-        <Select label="Cause of action" value={idx} onChange={(e) => setIdx(e.target.value)}
+        <Input label="Verified triggering / accrual date" type="date" value={start} onChange={(e) => { setStart(e.target.value); setConfirmed(false); }} />
+        <Select label="Cause of action (guide only)" value={idx} onChange={(e) => { setIdx(e.target.value); setPeriod(''); setConfirmed(false); }}
           options={LIMITATION_PERIODS.map((l, i) => ({ value: String(i), label: `${l.cause} (${l.period})` }))} />
+        <Select label="Applicable state / FCT / federal scope *" value={jurisdiction} onChange={e => { setJurisdiction(e.target.value); setConfirmed(false); }}
+          options={[{ value: '', label: 'Select jurisdiction — no default period applies' }, ...NIGERIAN_JURISDICTIONS.map(j => ({ value: j, label: j }))]} />
+        <Input label="Period confirmed from operative law *" value={period} onChange={e => { setPeriod(e.target.value); setConfirmed(false); }} placeholder="e.g. 6 years or 30 days — one precise period" />
       </div>
+      <Input label="Verified instrument, provision and source *" value={source} onChange={e => { setSource(e.target.value); setConfirmed(false); }} placeholder="Record the applicable text and pinpoint, not a general reference table" />
+      <Toggle checked={confirmed} onChange={setConfirmed} label="I have checked the applicable law, date and counting convention" />
+      <p className="text-xs text-amber-700 dark:text-amber-400">No state-specific period is inferred from the general table. This calculates a calendar offset only; it does not determine accrual, working days, exclusions, exceptions or extension rights. The entered source is not independently verified by the app.</p>
       {deadline && (
         <div className="rounded-xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4">
-          <p className="text-sm text-slate-500">Approximate limitation deadline</p>
+          <p className="text-sm text-slate-500">Provisional calendar date — {jurisdiction}</p>
           <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatDate(deadline)}</p>
           <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 mt-0.5" /> {item.note} Verify the applicable state law, public-officer exceptions (3 months), continuing injury, and fraud/concealment rules.</p>
           <Button size="sm" variant="outline" className="mt-3" onClick={createTask} leftIcon={<CalendarPlus className="w-4 h-4" />}>Create reminder task</Button>
@@ -151,14 +162,16 @@ function Hierarchy() {
 function StateRules() {
   const ai = useAiRun('state-rules');
   const [state, setState] = useState('Anambra');
+  const [lawAsAt, setLawAsAt] = useState(todayISO());
   const known = STATE_COURT_RULES[state];
+  React.useEffect(() => { ai.reset(); }, [state, lawAsAt, ai.reset]);
   const meta = NIGERIAN_STATES.find((s) => s.name === state);
 
   const fetchDirections = () => {
     ai.run({
       systemInstruction:
         'You are a Nigerian procedural-law researcher searching the live web. Report the CURRENT High Court (Civil Procedure) Rules and any standalone Practice Directions in force for the named state, with year/edition and real source links. Note frontloading, ADR/Multi-Door referral, and pre-action requirements. If you cannot confirm the current edition, say so clearly.',
-      userText: `Current Civil Procedure Rules and Practice Directions of the High Court of ${state} State, Nigeria.`,
+      userText: `Research Civil Procedure Rules and Practice Directions of the ${highCourtName(state)}, Nigeria. Law-as-at date: ${lawAsAt || 'not supplied; confirm before current-force conclusions'}. Distinguish verified signed rules/directions from portals and gaps; give actual text pinpoints and amendments, not assumed edition years.`,
       mode: 'standard',
       webGrounding: true,
     });
@@ -176,13 +189,14 @@ function StateRules() {
           </optgroup>
         ))}
       </Select>
+      <Input label="Law-as-at date" type="date" value={lawAsAt} onChange={e => setLawAsAt(e.target.value)} />
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-3 text-sm">
-        <p className="text-slate-700 dark:text-slate-200 font-medium">{state} State {meta ? `· ${meta.zone} · capital ${meta.capital}` : ''}</p>
-        <p className="text-slate-500 mt-1">{known || `${state} State High Court (Civil Procedure) Rules — confirm the current edition and any standalone Practice Directions (use the live fetch below).`}</p>
+        <p className="text-slate-700 dark:text-slate-200 font-medium">{normalizeJurisdiction(state)} {meta ? `· ${meta.zone} · capital ${meta.capital}` : ''}</p>
+        <p className="text-slate-500 mt-1">{known}</p>
       </div>
       <Button onClick={fetchDirections} isLoading={ai.running} leftIcon={<Globe className="w-4 h-4" />}>Find current practice directions (live)</Button>
       <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5"><AlertTriangle className="w-3.5 h-3.5 mt-0.5" /> Rules and Practice Directions change — always confirm the edition in force at the relevant registry before filing.</p>
-      <AiResult ai={ai} title={`${state} State — rules & directions`} exportTitle={`${state} State Rules`} allowSave showAudit={false} />
+      <AiResult ai={ai} title={`${normalizeJurisdiction(state)} — rules & directions`} exportTitle={`${normalizeJurisdiction(state)} Rules`} allowSave showAudit={false} />
     </Card>
   );
 }
@@ -267,18 +281,24 @@ function Aml() {
 }
 
 function Checklist() {
+  const { showToast } = useApp();
   const ai = useAiRun('court-checklist');
   const [matter, setMatter] = useState(MATTER_TYPES[0]);
   const [court, setCourt] = useState(COURTS[2]);
-  const RULE_SETS = ['Federal (FHC/NIC Rules)', ...NIGERIAN_STATES.map((s) => `${s.name} State`)];
-  const [rules, setRules] = useState('Anambra State');
+  const [jurisdiction, setJurisdiction] = useState('');
+  const [division, setDivision] = useState('');
+  const [lawAsAt, setLawAsAt] = useState(todayISO());
+  React.useEffect(() => { ai.reset(); }, [matter, court, jurisdiction, division, lawAsAt, ai.reset]);
 
   const generate = () => {
+    let userText;
+    try { userText = buildCourtChecklistRequest({ matter, court, jurisdiction, division, lawAsAt }); }
+    catch (e) { showToast('warning', e.message); return; }
     ai.run({
-      systemInstruction: 'You are a Nigerian litigation registrar/practitioner. Produce a precise, rule-cited filing checklist for the given matter type, court, and rules of court. Sections: 1) Pre-action requirements, 2) Documents to file (with copies), 3) Filing steps & where, 4) Frontloading requirements, 5) Service, 6) Common defects that get processes struck out, 7) Indicative timeline. Cite the specific Order/Rule where you can; flag that registry fees change.',
-      userText: `Filing checklist for: ${matter}\nCourt: ${court}\nRules of court: ${rules}`,
+      systemInstruction: 'You are a Nigerian litigation practitioner researching confirmed court instruments for the selected court and jurisdiction. First test competence and identify the operative rules, edition, amendments and practice directions for the supplied date. Federal courts use their own rules, not state High Court rules based on location. Sections: 1) Jurisdiction and verification gaps, 2) Pre-action requirements, 3) Documents to file, 4) Filing and frontloading, 5) Service, 6) Common defects, 7) Conditional timeline. Cite actual text, source URL and Order/Rule pinpoints; do not invent fees, copy counts or deadlines. Missing instruments mean a provisional checklist, not filing-ready advice.',
+      userText,
       mode: 'comprehensive',
-      webGrounding: false,
+      webGrounding: true,
     });
   };
 
@@ -288,10 +308,17 @@ function Checklist() {
       <div className="grid sm:grid-cols-3 gap-3">
         <Select label="Matter type" value={matter} onChange={(e) => setMatter(e.target.value)} options={MATTER_TYPES.map((m) => ({ value: m, label: m }))} />
         <Select label="Court" value={court} onChange={(e) => setCourt(e.target.value)} options={COURTS.map((c) => ({ value: c, label: c }))} />
-        <Select label="Rules of court" value={rules} onChange={(e) => setRules(e.target.value)} options={RULE_SETS.map((s) => ({ value: s, label: s }))} />
+        <Select label="State / FCT / federal scope *" value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}
+          options={[{ value: '', label: 'Select the actual jurisdiction' }, ...NIGERIAN_JURISDICTIONS.map(j => ({ value: j, label: j }))]} />
       </div>
-      <Button onClick={generate} isLoading={ai.running} leftIcon={<Sparkles className="w-4 h-4" />}>Generate checklist</Button>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Input label="Judicial division / location" value={division} onChange={e => setDivision(e.target.value)} />
+        <Input label="Law-as-at date" type="date" value={lawAsAt} onChange={e => setLawAsAt(e.target.value)} />
+      </div>
+      <p className="text-xs text-amber-700 dark:text-amber-400">Live research is required. Rules are determined by the court, not by a combined FHC/NIC option or the state of its sitting. Unverified requirements remain provisional.</p>
+      <Button onClick={generate} disabled={!jurisdiction} isLoading={ai.running} leftIcon={<Sparkles className="w-4 h-4" />}>Generate checklist</Button>
       <AiResult ai={ai} title="Filing checklist" exportTitle={`Checklist — ${matter}`} allowSave showAudit={false} />
     </Card>
   );
 }
+

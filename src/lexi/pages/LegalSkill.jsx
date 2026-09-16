@@ -24,11 +24,14 @@ import { AiResult } from '../components/AiResult.jsx';
 import { extractDocument, ACCEPTED_DOC_TYPES } from '../docParse.js';
 import { wrapDocument } from '../prompts.js';
 import { cn } from '../utils.js';
+import { todayISO } from '../utils.js';
+import { COURTS } from '../legalData.js';
+import { NIGERIAN_JURISDICTIONS, GOVERNING_LAW_OPTIONS, buildJurisdictionBrief } from '../jurisdictions.js';
 
 // ── Master Legal Skill System Prompt ─────────────────────────────────────────
 const LEGAL_SKILL_BASE = `You are operating as a Senior Legal Analyst with deep expertise in commercial law, contract analysis, regulatory compliance, and Nigerian legal practice. You apply rigorous legal reasoning — issue-spotting, rule application, and risk assessment — producing practical, actionable output.
 
-JURISDICTION PRIORITY: Nigerian law applies by default (common law, CAMA 2020, NDPA 2023, Labour Act, Evidence Act 2011, Arbitration and Mediation Act 2023, CBN regulations, NITDA guidelines). Flag where foreign law may apply.
+JURISDICTION PRIORITY: Support all 36 Nigerian states and the FCT, not just Lagos and Abuja. The explicitly selected matter jurisdiction controls the research scope; a profile default is not proof of forum. Separate applicable federal legislation from state laws, court procedure, local/customary law and arbitration seat. Establish territorial and subject-matter competence, relevant event dates and law-as-at date. Verify amendments and commencement; never automatically apply Lagos/FCT rules or federal ACJA to another state's courts. Flag where foreign law may apply and identify which Nigerian mandatory rules still require consideration.
 
 CORE LEGAL ANALYSIS PROTOCOL:
 Apply the IRAC structure to every material legal question:
@@ -53,11 +56,13 @@ CLAUSE REDLINING FORMAT (use whenever suggesting revised language):
 NIGERIAN LAW FLAGS (always check):
   - Unsigned agreements — enforceability in practice vs. theory
   - Foreign governing law for agreements to be enforced in Nigeria
-  - Arbitration seats with no Nigeria enforcement treaty
+  - Arbitration seat, applicable arbitration law and the actual requirements for recognition/enforcement; absence of a treaty alone is not a complete conclusion
   - Data transfer clauses without NDPA 2023 compliance mechanisms
-  - IP assignment without consideration (may be unenforceable)
+  - IP assignment formalities, ownership and execution; assess consideration and deeds in context rather than asserting every gratuitous assignment is unenforceable
   - Land transactions without Land Use Act compliance
-  - Employment terms inconsistent with the Labour Act
+  - Employment terms and the applicable worker category, statutes and NIC jurisdiction; do not assume the Labour Act covers every employee identically
+  - State-specific tenancy/recovery of premises, limitation, land instruments/registration, probate, criminal procedure and court practice directions
+  - Customary/Islamic law where material: establish the applicable law and forum; do not generalise an ethnic or regional custom to every state
 
 QUALITY CONTROL (complete every response):
   ✓ Governing law and jurisdiction identified
@@ -155,7 +160,7 @@ OUTPUT FORMAT:
     placeholder: 'e.g. We want to launch a fintech app that collects biometric data from Nigerian users and processes payments via a third-party payment processor in the US…',
     extraFields: [
       { key: 'industry', label: 'Industry / sector', type: 'select', options: ['Technology / Software', 'Fintech / Payments', 'Healthcare', 'E-commerce', 'Real Estate', 'Media / Content', 'Manufacturing', 'General / Other'] },
-      { key: 'jurisdiction', label: 'Primary jurisdiction', type: 'select', options: ['Nigeria (Federal)', 'Lagos State', 'Abuja (FCT)', 'Other Nigerian State', 'Nigeria + UK', 'Nigeria + US', 'Nigeria + EU', 'Multi-jurisdictional'] },
+      { key: 'cross_border', label: 'Additional cross-border scope', type: 'select', options: ['None specified', 'UK', 'US', 'EU', 'Other / multiple (specify in facts)'] },
     ],
     systemSuffix: `COMPLIANCE CHECK TASK:
 Conduct a systematic compliance analysis covering:
@@ -178,7 +183,7 @@ Conduct a systematic compliance analysis covering:
 OUTPUT FORMAT:
 | Regulation | Requirement | Current Status | Action Required | Priority |
 |-----------|-------------|----------------|-----------------|----------|`,
-    userPrefix: (vals) => `Please conduct a compliance check for the following.\nIndustry: ${vals.industry || 'Technology'}\nPrimary jurisdiction: ${vals.jurisdiction || 'Nigeria (Federal)'}\n\nDESCRIPTION:\n`,
+    userPrefix: (vals) => `Please conduct a compliance check for the following.\nIndustry: ${vals.industry || 'Technology / Software'}\nAdditional cross-border scope: ${vals.cross_border || 'None specified'}\n\nDESCRIPTION:\n`,
   },
   {
     id: 'legal-risk-assessment',
@@ -257,7 +262,7 @@ After all issues:
     placeholder: 'e.g. Draft a mutual NDA for an AI startup sharing training data with a data vendor. Mutual confidentiality, 2 years post-termination, Lagos arbitration, Nigerian law, exclude residuals clause…',
     extraFields: [
       { key: 'doc_type', label: 'Document type', type: 'select', options: ['Non-Disclosure Agreement (NDA)', 'Service Agreement', 'Employment Contract', 'Consultancy Agreement', 'Software Licence', 'Data Processing Agreement (DPA)', 'Shareholder Agreement', 'Term Sheet', 'Demand Letter', 'Legal Opinion / Memo', 'Privacy Policy', 'Terms of Service', 'Other'] },
-      { key: 'governing_law', label: 'Governing law', type: 'select', options: ['Nigerian law (Lagos)', 'Nigerian law (Abuja)', 'Nigerian law (other state)', 'English law', 'Other'] },
+      { key: 'governing_law', label: 'Substantive governing law (separate from forum)', type: 'select', options: GOVERNING_LAW_OPTIONS },
     ],
     systemSuffix: `LEGAL DOCUMENT DRAFTING TASK:
 Draft a complete, professionally structured legal document. Requirements:
@@ -273,7 +278,7 @@ DOCUMENT STANDARDS:
   - All cross-references correct
   - Execution block appropriate to the parties (individuals vs. companies)
   - Nigerian stamp duty implications noted where relevant`,
-    userPrefix: (vals) => `Please draft the following legal document.\nDocument type: ${vals.doc_type || 'Other'}\nGoverning law: ${vals.governing_law || 'Nigerian law (Lagos)'}\n\nDRAFTING INSTRUCTIONS:\n`,
+    userPrefix: (vals) => `Please draft the following legal document.\nDocument type: ${vals.doc_type || 'Non-Disclosure Agreement (NDA)'}\nGoverning law: ${vals.governing_law || 'Not yet established'}\n\nDRAFTING INSTRUCTIONS:\n`,
   },
   {
     id: 'meeting-briefing',
@@ -306,6 +311,8 @@ End with: PREP CHECKLIST — documents to bring, authority limits to confirm, sp
 ];
 
 // ── Expandable Instruction Panel ──────────────────────────────────────────────
+export const LEGAL_SKILL_MODES = MODES;
+
 function InstructionPanel({ mode }) {
   const [open, setOpen] = useState(false);
   return (
@@ -353,7 +360,12 @@ function InstructionPanel({ mode }) {
 function ModePanel({ mode, onRun, ai }) {
   const { webGrounding } = useApp();
   const [text, setText] = useState('');
-  const [extraVals, setExtraVals] = useState({});
+  const [extraVals, setExtraVals] = useState(() => Object.fromEntries((mode.extraFields || []).filter(f => f.type === 'select').map(f => [f.key, f.options[0]])));
+  const [jurisdiction, setJurisdiction] = useState('');
+  const [court, setCourt] = useState('');
+  const [division, setDivision] = useState('');
+  const [lawAsAt, setLawAsAt] = useState(todayISO());
+  React.useEffect(() => { ai.reset(); }, [jurisdiction, court, division, lawAsAt, ai.reset]);
   const [doc, setDoc] = useState(null);
   const [docBusy, setDocBusy] = useState(false);
   const [useGrounding, setUseGrounding] = useState(webGrounding);
@@ -374,16 +386,25 @@ function ModePanel({ mode, onRun, ai }) {
     const prefix = mode.userPrefix ? mode.userPrefix(extraVals) : '';
     let content = text.trim();
     if (doc) content += (content ? '\n\n' : '') + wrapDocument(doc.sanitized);
-    return prefix + content;
+    return buildJurisdictionBrief({ jurisdiction, court, division, lawAsAt, governingLaw: extraVals.governing_law }) + '\n\n' + prefix + content;
   };
 
-  const canRun = text.trim() || doc;
+  const canRun = Boolean(jurisdiction && (text.trim() || doc) && !docBusy);
 
   return (
     <div className="space-y-4">
       <InstructionPanel mode={mode} />
 
       <Card variant="glass" className="space-y-4">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Select label="Matter jurisdiction * (all states + FCT)" value={jurisdiction} onChange={e => setJurisdiction(e.target.value)}
+            options={[{ value: '', label: 'Select the actual state, FCT or federal scope' }, ...NIGERIAN_JURISDICTIONS.map(j => ({ value: j, label: j }))]} />
+          <Select label="Court / forum (if established)" value={court} onChange={e => setCourt(e.target.value)}
+            options={[{ value: '', label: 'Not yet established / non-contentious matter' }, ...COURTS.map(c => ({ value: c, label: c }))]} />
+          <Input label="Judicial division / location" value={division} onChange={e => setDivision(e.target.value)} placeholder="Specify the actual division or arbitration seat" />
+          <Input label="Law-as-at date (also give event dates in facts)" type="date" value={lawAsAt} onChange={e => setLawAsAt(e.target.value)} />
+        </div>
+        <p className="text-xs text-amber-700 dark:text-amber-400">Every state is supported for research, but verified source coverage varies. Selecting a state does not certify its rules; missing operative texts must be disclosed. Profile defaults do not establish the forum.</p>
         {/* Extra fields */}
         {mode.extraFields && mode.extraFields.length > 0 && (
           <div className="grid sm:grid-cols-2 gap-3">
@@ -416,6 +437,7 @@ function ModePanel({ mode, onRun, ai }) {
             <FileText className="w-4 h-4 text-emerald-500" />
             <span className="text-emerald-700 dark:text-emerald-300 font-medium">{doc.name}</span>
             <Badge variant="default">{doc.chars.toLocaleString()} chars</Badge>
+            {doc.truncated && <Badge variant="warning">Partial document — extraction/context limit</Badge>}
             <button onClick={() => setDoc(null)} className="ml-auto text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
           </div>
         )}
@@ -497,7 +519,7 @@ export function LegalSkill() {
           const Icon = m.icon;
           const active = activeMode === m.id;
           return (
-            <button key={m.id} onClick={() => setActiveMode(m.id)}
+            <button key={m.id} onClick={() => { ai.reset(); setActiveMode(m.id); }}
               className={cn('flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-center transition-all',
                 active ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-700 bg-white/50 dark:bg-slate-800/30'
               )}>
@@ -532,8 +554,9 @@ export function LegalSkill() {
         <p className="font-semibold text-slate-600 dark:text-slate-300 text-sm flex items-center gap-1.5">
           <BookOpen className="w-4 h-4" /> Legal Analysis Skill — Nigerian Law Focus
         </p>
-        <p>This skill applies Nigerian law by default: CAMA 2020, NDPA 2023, Labour Act, Evidence Act 2011, Arbitration and Mediation Act 2023, CBN/NITDA/SEC regulations. The AI reasons through issues using the IRAC framework and classifies risks as Critical / High / Medium / Low. All output is legal analysis, not legal advice — always verify authorities and consult qualified counsel for consequential matters.</p>
+        <p>All 36 states and the FCT are supported for jurisdiction-scoped analysis. Federal law, state law, forum procedure and arbitration seat are assessed separately. Source coverage is incomplete: IRAC reasoning and risk labels do not independently verify authorities. Confirm operative instruments, relevant dates and court scope with qualified counsel before relying on the output.</p>
       </Card>
     </div>
   );
 }
+
