@@ -1,0 +1,318 @@
+[
+  {
+    "id": "ebonyi-small-claims-2024",
+    "state": "Ebonyi",
+    "category": "small-claims",
+    "title": "Small Claims Court Practice Directions 2024",
+    "url": "https://ebonyistate.gov.ng/storage/documents/min-2-ebonyi-state-practice-direction-on-small-claims-courtpdf-1730824973.pdf",
+    "court": "Designated Magistrates' Small Claims Courts and High Court appeals",
+    "reviewNote": "Scanned document: OCR must be checked against page images.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "abia-small-claims-2023",
+    "state": "Abia",
+    "category": "small-claims",
+    "title": "Practice Directions on Small Claims 2023",
+    "url": "https://highcourt.ab.gov.ng/SCC-PRACTICE-DIRECTIONS.pdf",
+    "court": "Designated Magistrates' Small Claims Courts and High Court appeals",
+    "reviewNote": "Published commencement 17 November 2023; later amendments not confirmed.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "anambra-small-claims-2023",
+    "state": "Anambra",
+    "category": "small-claims",
+    "title": "Practice Directions of the Small Claims Court 2023",
+    "url": "https://anambrastate.gov.ng/wp-content/uploads/The-Anambra-State-Practice-Directions-of-the-Small-Claims-Court-2023.pdf",
+    "court": "Designated Magistrates' Small Claims Courts and High Court appeals",
+    "reviewNote": "Do not apply to ordinary High Court civil suits.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "enugu-small-claims-2023",
+    "state": "Enugu",
+    "category": "small-claims",
+    "title": "Practice Directions on Small Claims 2023",
+    "url": "https://judiciary.en.gov.ng/assets/practice-directions.pdf",
+    "court": "Designated Magistrates' Small Claims Courts and High Court appeals",
+    "reviewNote": "Review state-specific service rules and forms.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "imo-small-claims",
+    "state": "Imo",
+    "category": "small-claims",
+    "title": "Practice Directions on Small Claims 2023",
+    "url": "https://imojudiciary.gov.ng/documents/downloaddoc/4/imo-state-small-claims-court-practice-direction",
+    "court": "Scope requires document review",
+    "reviewNote": "Official download failed previously; no provisions inferred.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "imo-general-directives",
+    "blockReason": "Official general-directives download returns byte-identical Small Claims 2023 PDF (same SHA-256 as imo-small-claims). It is not evidence of general High Court practice.",
+    "state": "Imo",
+    "category": "general",
+    "title": "Imo State Practice Directives",
+    "url": "https://imojudiciary.gov.ng/documents/downloaddoc/1/imo-state-practice-directives",
+    "court": "Scope requires document review",
+    "reviewNote": "Catalogue upload 2022 is not an issue or commencement date.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "akwa-ibom-small-claims-2023",
+    "state": "Akwa Ibom",
+    "category": "small-claims",
+    "title": "Practice Direction on Small Claims 2023",
+    "url": "https://akwaibomjudiciary.org/assets/front/application/JMWPo8pVLabNJEcG.pdf",
+    "court": "Designated Magistrates' Small Claims Courts and High Court appeals",
+    "reviewNote": "Confirm published 6-day defence period against signed operative copy.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "benue-small-claims-2023",
+    "state": "Benue",
+    "category": "small-claims",
+    "title": "Practice Directions for Small Claims Court 2023",
+    "url": "https://benuejudiciary.org.ng/u/docs/DOC32579.pdf",
+    "court": "Designated Senior District Small Claims Courts and High Court appeals",
+    "reviewNote": "Published commencement blank: require signed operative copy.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "delta-small-claims",
+    "state": "Delta",
+    "category": "small-claims",
+    "title": "Small Claims Court Practice Direction",
+    "url": "https://smallclaims.deltastate.gov.ng/wp-content/uploads/2023/12/PRACTICE-DIRECTION-For-Small-Claims-Court-in-Delta-State.pdf",
+    "court": "Scope to be checked in actual instrument",
+    "reviewNote": "Upload folder is not proof of issue year.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "rivers-small-claims-2024",
+    "state": "Rivers",
+    "category": "small-claims",
+    "title": "Small Claims Court Practice Direction 2024",
+    "url": "https://www.judiciary.rv.gov.ng/wp-content/uploads/2024/PRATICE%20DIRECTION%202024.pdf",
+    "court": "Designated Magistrates' Small Claims Courts and High Court appeals",
+    "reviewNote": "Official catalogue also lists 2023 text; resolve temporal applicability.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "sokoto-small-claims-2023",
+    "state": "Sokoto",
+    "category": "small-claims",
+    "title": "Practice Directions on Small Claims 2023",
+    "url": "https://judiciary.sk.gov.ng/wp-content/uploads/2024/11/PRACTICAL-DIRECTION-SCC.pdf",
+    "court": "District Small Claims Courts",
+    "reviewNote": "Confirm designation and signed current text.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "katsina-small-claims-2023",
+    "state": "Katsina",
+    "category": "small-claims",
+    "title": "Updated Practice Direction on Small Claims 2023",
+    "url": "https://katsinastate.gov.ng/wp-content/uploads/2024/01/UPDATED-PRACTICE-DIRECTION-ON-SCC-KATSINA-2023.pdf",
+    "court": "Designated District Small Claims Courts and High Court appeals",
+    "reviewNote": "Confirm amendments and commencement.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "yobe-small-claims",
+    "state": "Yobe",
+    "category": "small-claims",
+    "title": "Small Claims Court Practice Directions",
+    "url": "https://yobestate.gov.ng/wp-content/uploads/2024/07/PRACTICE-DIRECTIONS-SMALL-CLAMS-YOBE-STATE.pdf",
+    "court": "Designated District Small Claims Courts",
+    "reviewNote": "Published index only previously accessible; no dates inferred.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "oyo-small-claims-2023",
+    "state": "Oyo",
+    "category": "small-claims",
+    "title": "Small Claims Court Practice Directions 2023",
+    "url": "https://www.oyostatejudiciary.oy.gov.ng/wp-content/uploads/2023/11/OYO-STATE-SMALL-CLAIMS-COURT-PRACTICE-DIRECTION-SIGNED-INTO-LAW-ON-12TH-JANUARY-2023.pdf",
+    "court": "Designated Small Claims Courts",
+    "reviewNote": "Readable download availability requires confirmation.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "kaduna-acjl-rules-2024",
+    "state": "Kaduna",
+    "category": "criminal",
+    "title": "ACJL Rules 2024 including scheduled practice directions",
+    "url": "https://www.kadunajudiciary.org/assets/resources/Kaduna%20State%20Administration%20of%20Criminal%20Justice%28ACJL%29%20Rules%202024.pdf",
+    "court": "State criminal proceedings and scheduled remand directions",
+    "reviewNote": "Contains rules and directions: distinguish each; scheduled directions have placeholder date text.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "gombe-appeals-2023",
+    "state": "Gombe",
+    "category": "appeals",
+    "title": "High Court Practice Directions (Appeals) No. 1 of 2023",
+    "url": "https://judiciary.gm.gov.ng/wp-content/uploads/2024/01/Practice-Directions-Appeals.pdf",
+    "court": "Civil and criminal appeals to Gombe State High Court",
+    "reviewNote": "Published commencement 8 August 2023; repeal/savings for Order 8 of 2012 directions.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "gombe-civil-2023",
+    "state": "Gombe",
+    "category": "civil",
+    "title": "High Court Practice Directions No. 2 of 2023 (Civil Cases)",
+    "url": "https://judiciary.gm.gov.ng/wp-content/uploads/2024/01/PRACTICE-DIRECTIONS-CIVIL-CASES.pdf",
+    "court": "Civil proceedings of Gombe State High Court",
+    "reviewNote": "Published commencement 8 August 2023. Later changes not confirmed.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "gombe-acjl-2023",
+    "state": "Gombe",
+    "category": "criminal",
+    "title": "ACJL Practice Direction 2023",
+    "url": "https://judiciary.gm.gov.ng/wp-content/uploads/2024/01/Gombe-State-ACJL-Practice-Direction-2023.pdf",
+    "court": "State criminal proceedings; confirm each scheduled direction's scope",
+    "reviewNote": "Check signed version and commencement.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "edo-virtual-2025",
+    "state": "Edo",
+    "category": "electronic",
+    "title": "Practice Directions for Virtual Court Sitting/Hearing 2025",
+    "url": "https://edojudiciary.gov.ng/wp-content/uploads/2025/10/PRACTICE-DIRECTIONS-FOR-VIRTUAL-COURT-SITTING-HEARING-IN-THE-EDO-STATE-JUDICIARY-2025.pdf",
+    "court": "High Court divisions, Magistrates' and Customary Courts; see application clause",
+    "reviewNote": "Do not confuse court-specific virtual directions with service/e-filing permission.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "edo-criminal-justice-2018",
+    "state": "Edo",
+    "category": "criminal",
+    "title": "Criminal Justice Law Practice Directions 2018",
+    "url": "https://edojudiciary.gov.ng/wp-content/uploads/2018/06/2018-Criminal-Justice-Law-Practice-Directions.pdf",
+    "court": "State criminal proceedings",
+    "reviewNote": "Historical instrument; amendments/current force unconfirmed.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "edo-criminal-division-2018",
+    "state": "Edo",
+    "category": "criminal",
+    "title": "Criminal Division Practice Directions 2018",
+    "url": "https://edojudiciary.gov.ng/wp-content/uploads/2018/11/Criminal-Division-Practice-Directions_2018.pdf",
+    "court": "Criminal Division; confirm actual scope",
+    "reviewNote": "Scanned historical instrument; current force unconfirmed.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "edo-adr-2018",
+    "state": "Edo",
+    "category": "adr",
+    "title": "Practice Directions for ADR Processes 2018",
+    "url": "https://edojudiciary.gov.ng/wp-content/uploads/2018/08/Practice-Directions-for-ADR-Processes-Edo-State-MultiDoor-Court-House-1.pdf",
+    "court": "Edo State Multi-Door Courthouse ADR",
+    "reviewNote": "Scanned historical instrument; current force unconfirmed.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "edo-e-filing",
+    "state": "Edo",
+    "category": "electronic",
+    "title": "E-Filing Practice Direction",
+    "url": "https://edojudiciary.gov.ng/wp-content/uploads/2016/11/E-Filing-Practice-Direction.pdf",
+    "court": "Scope requires actual document review",
+    "reviewNote": "Historical upload folder is not proof of date or current force.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "edo-divisions-2013",
+    "state": "Edo",
+    "category": "general",
+    "title": "Civil and Criminal Division Practice Direction 2013",
+    "url": "https://edojudiciary.gov.ng/wp-content/uploads/2016/11/Civil-And-Criminal-Division-Practice-Direction-2013.pdf",
+    "court": "Civil and criminal divisions; confirm scope",
+    "reviewNote": "Historical instrument; current force unconfirmed.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "edo-pre-election-2020",
+    "state": "Edo",
+    "category": "civil",
+    "title": "High Court (Pre-Election Matters) Practice Directions 2020",
+    "url": "https://edojudiciary.gov.ng/wp-content/uploads/2020/08/Edo-State-High-Court-Pre-Election-Matters-Practice-Directions-2020.pdf",
+    "court": "Pre-election matters; jurisdiction/temporal applicability require confirmation",
+    "reviewNote": "Historical instrument, not general civil rules; confirm intervening legislation.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "fct-service",
+    "state": "FCT",
+    "category": "service",
+    "title": "Practice Direction on Service of Process",
+    "url": "https://www.fcthighcourt.gov.ng/wp-content/uploads/2025/05/PRACTICE-DIRECTION-ON-SERVICE-OF-PROCESS.pdf",
+    "court": "FCT High Court service; confirm application clause",
+    "reviewNote": "Confirm signed effective dates and current fee schedules. Not another state's local rule.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  },
+  {
+    "id": "fct-compendium-2024",
+    "state": "FCT",
+    "category": "general",
+    "title": "Compendium of Practice Directions 2024",
+    "url": "https://www.fcthighcourt.gov.ng/wp-content/uploads/2025/05/COMPENDIUM-OF-PRACTICE-DIRECTION-2024.pdf",
+    "court": "FCT court-specific directions; confirm each application clause",
+    "reviewNote": "Compendium includes entries with blank commencement dates: no automatic current-force assumption.",
+    "reviewedOn": "2026-09-16",
+    "currentForce": "not-confirmed"
+  }
+  ,
+  {
+    "id": "bauchi-small-claims", "state": "Bauchi", "category": "small-claims",
+    "title": "Practice Direction on Small Claims Court",
+    "url": "https://judiciary.bu.gov.ng/uploads/legislations/Practice%20Direction%20on%20SCC.pdf",
+    "court": "Scope requires readable document review",
+    "reviewNote": "Scanned official copy; no issue date inferred from listing.",
+    "reviewedOn": "2026-09-16", "currentForce": "not-confirmed"
+  },
+  {
+    "id": "borno-small-claims-2023", "state": "Borno", "category": "small-claims",
+    "title": "Small Claims Court Practice Directions 2023",
+    "url": "https://bornojudiciary.ng/assets/files/Small-Claims-Court-Practice-Directions-2023.pdf",
+    "court": "Designated Small Claims Courts",
+    "reviewNote": "Confirm commencement, designation and amendments.",
+    "reviewedOn": "2026-09-16", "currentForce": "not-confirmed"
+  }
+]
+

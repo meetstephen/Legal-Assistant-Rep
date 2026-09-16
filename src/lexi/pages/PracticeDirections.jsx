@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BookOpen, ExternalLink } from 'lucide-react';
 import { PRACTICE_DIRECTIONS, REVIEWED_ON, JURISDICTIONS, SOURCE_KIND_LABELS, filterPracticeDirections } from '../practiceDirections.js';
 import { Card, PageHeader, Badge, Input } from '../components/ui.jsx';
+import { PracticeCorpus } from '../components/PracticeCorpus.jsx';
 
 export function PracticeDirections() {
   const [state, setState] = useState('Ebonyi');
@@ -12,7 +13,7 @@ export function PracticeDirections() {
   const zones = [...new Set(PRACTICE_DIRECTIONS.map(d => d.zone))].sort();
   return (
     <div className="space-y-6">
-      <PageHeader icon={BookOpen} title="State & FCT Practice Directions" subtitle="Nationwide source discovery — all 36 states and the Federal Capital Territory" />
+      <PageHeader icon={BookOpen} title="State & FCT Court Practice Directions" subtitle="Court-document text, page references and honest coverage tracking for all 36 states and FCT" />
       <Card className="space-y-3">
         <p className="text-sm">Reviewed {REVIEWED_ON}. All jurisdictions are indexed, but not every entry has verified direction text. Documents, catalogues, contact leads and reports are labelled separately. Confirm signed text, amendments, commencement, court designation and registry requirements before filing.</p>
         <div className="flex flex-wrap gap-3 text-sm">
@@ -38,7 +39,9 @@ export function PracticeDirections() {
         <Input aria-label="Search practice-direction sources" placeholder="Search subject, title or verification notes" value={query} onChange={e => setQuery(e.target.value)} />
         <p className="text-xs">{entries.length} matching entries. Nationwide index: {PRACTICE_DIRECTIONS.length} jurisdictions; {PRACTICE_DIRECTIONS.filter(d => d.sourceKind === 'gap').length} with no confirmed direction-text link. A link is not proof of current force.</p>
       </Card>
-      {!entries.length && <Card>No matching entries. Adjust the state, zone, source type or search.</Card>}
+      <PracticeCorpus states={PRACTICE_DIRECTIONS.filter(d => (state === 'All' || d.state === state) && (zone === 'All' || d.zone === zone)).map(d => d.state)} />
+      <h2 className="font-semibold">Source-discovery directory (not operative text)</h2>
+      {!entries.length && <Card>No matching source leads. Adjust the state, zone, source type or search.</Card>}
       {entries.map(d => (
         <Card key={d.state} className="space-y-3">
           <div className="flex flex-wrap gap-2"><Badge>{d.state}</Badge><Badge>{d.zone}</Badge><Badge>{SOURCE_KIND_LABELS[d.sourceKind]}</Badge></div>
@@ -52,8 +55,9 @@ export function PracticeDirections() {
       <Card className="space-y-2 text-sm">
         <h2 className="font-semibold">Before relying on a procedural answer</h2>
         <p>Check subject-matter and territorial jurisdiction; applicable High Court/Magistrates'/District Court rules; state ACJL; pre-action protocols; service; filing and appeal triggers; prescribed forms; holidays and extensions. Small-claims directions do not govern every proceeding. FCT High Court is distinct from the Federal High Court.</p>
-        <p>Scanned, unavailable, unsigned or mismatched documents must be resolved with the issuing court. The AI receives jurisdiction-specific source leads and uncertainty flags, not invented missing rules.</p>
+        <p>Scanned, unavailable, unsigned or mismatched documents must be resolved with the issuing court. The AI receives subject- and state-filtered collected excerpts with page references where available. It must disclose missing text and current-force uncertainty, not invent missing rules.</p>
       </Card>
     </div>
   );
 }
+

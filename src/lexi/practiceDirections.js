@@ -354,7 +354,7 @@ export function filterPracticeDirections({ state = 'All', zone = 'All', sourceKi
   );
 }
 
-function mentionsState(query, state) {
+export function mentionsState(query, state) {
   const pattern = state === 'FCT' ? '(?:FCT|Federal[ -]+Capital[ -]+Territory|Abuja)' : state.split(' ').join('[ -]+');
   return new RegExp('\\b' + pattern + '\\b', 'i').test(query);
 }
@@ -370,3 +370,4 @@ export function practiceDirectionContext(query = '') {
     (matches.length > selected.length ? '\nMore jurisdictions were mentioned; narrow the forum before procedural advice.' : '') +
     '\nMentioning a place does not establish the forum. Abuja may refer to federal courts, not FCT High Court. Never treat portals/news/catalogues as operative rule text, fill evidence gaps from memory, or apply small-claims rules to ordinary proceedings. Confirm signed text, amendments, commencement, designation and exact court scope before reliance.';
 }
+
