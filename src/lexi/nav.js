@@ -18,6 +18,7 @@ export const NAV_SECTIONS = [
       { id: 'ai',       label: 'AI Assistant',   icon: Brain          },
       { id: 'chat',     label: 'AI Chat',         icon: MessageCircle  },
       { id: 'research', label: 'Research',        icon: BookOpen       },
+      { id: 'library',  label: 'Saved Library',   icon: FolderOpen     },
       { id: 'notes',    label: 'Notes → Brief',  icon: StickyNote     },
     ],
   },

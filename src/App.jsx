@@ -17,6 +17,7 @@ import { Home } from './lexi/pages/Home.jsx';
 import { AIAssistant } from './lexi/pages/AIAssistant.jsx';
 import { Chat } from './lexi/pages/Chat.jsx';
 import { Research } from './lexi/pages/Research.jsx';
+import { Library } from './lexi/pages/Library.jsx';
 import { NotesToBrief, Pleadings, WitnessPrep, Settlement, DueDiligence } from './lexi/pages/ToolPages.jsx';
 import { Cases } from './lexi/pages/Cases.jsx';
 import { Tasks } from './lexi/pages/Tasks.jsx';
@@ -45,6 +46,7 @@ const PAGES = {
   ai: AIAssistant,
   chat: Chat,
   research: Research,
+  library: Library,
   notes: NotesToBrief,
   cases: Cases,
   tasks: Tasks,

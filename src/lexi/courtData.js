@@ -18,7 +18,7 @@ export const COURTS = [
 ];
 
 // Limitation periods.  days = null means no fixed statutory period.
-export const LIMITATION_PERIODS = [
+const LEGACY_LIMITATION_PERIODS = [
   { id: 'simple_contract',    label: 'Simple contract',                                  days: 2190, years: 6,   law: 'Limitation Laws (State)' },
   { id: 'specialty_contract', label: 'Specialty contract (under seal / deed)',           days: 4380, years: 12,  law: 'Limitation Laws (State)' },
   { id: 'tort_general',       label: 'Tort — general',                                   days: 2190, years: 6,   law: 'Limitation Laws (State)' },
@@ -46,7 +46,7 @@ export const LIMITATION_PERIODS = [
 // Procedural deadline chains per court type.
 // triggerEvent: human-readable name of the event that starts the clock.
 // dueDays: number of days after the trigger event.
-export const PROCEDURAL_TEMPLATES = {
+const LEGACY_PROCEDURAL_TEMPLATES = {
   fhc: [
     { id: 'appearance',      label: 'Enter appearance',                      triggerEvent: 'Service of originating process',   dueDays: 8  },
     { id: 'defence',         label: 'File Statement of Defence',              triggerEvent: 'Entry of appearance',              dueDays: 30 },
@@ -135,6 +135,15 @@ export const COUNSEL_ROLES = [
   "3rd Party / Intervener counsel",
   "Amicus Curiae",
 ];
+
+export const LIMITATION_PERIODS = LEGACY_LIMITATION_PERIODS.map(({ id, label }) => ({
+  id, label, days: null, years: null, reviewRequired: true,
+  law: 'Verify the operative law and precise provision for this jurisdiction.',
+  note: 'Unverified legacy category. No period certified. Use the counsel-confirmed calculator and record the reviewed deadline in matter notes.',
+}));
+export const PROCEDURAL_TEMPLATES = Object.fromEntries(Object.entries(LEGACY_PROCEDURAL_TEMPLATES).map(([court, entries]) => [court, entries.map(({ id, label }) => ({
+  id, label, triggerEvent: 'Verify the operative rule and triggering event', dueDays: null, reviewRequired: true,
+}))]));
 
 export const NBA_ZONES = [
   'Lagos Branch', 'Abuja Branch (FCT)', 'Port Harcourt Branch',

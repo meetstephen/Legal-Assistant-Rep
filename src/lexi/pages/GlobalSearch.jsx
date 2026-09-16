@@ -50,7 +50,7 @@ export function GlobalSearch() {
           </Group>
           <Group title="Saved analyses" icon={FileText} count={results.analyses.length}>
             {results.analyses.map((a) => (
-              <Row key={a.id} onClick={() => navigate(a.caseId ? 'cases' : 'profile')} title={a.title} sub={truncate(a.content, 90)} tag={formatDate(a.createdAt)} />
+              <Row key={a.id} onClick={() => navigate('library', { libraryId: `analysis:${a.id}` })} title={a.title} sub={truncate(a.content, 90)} tag={formatDate(a.createdAt)} />
             ))}
           </Group>
           <Group title="AI history" icon={HistoryIcon} count={results.history.length}>
