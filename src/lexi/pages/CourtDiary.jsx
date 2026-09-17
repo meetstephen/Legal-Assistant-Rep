@@ -32,13 +32,16 @@ import {
   PageHeader, Modal, EmptyState,
 } from '../components/ui.jsx';
 import { generateId, cn, formatDate, downloadBlob } from '../utils.js';
+import { Deadline as VerifiedDeadline } from './Tools.jsx';
+import { migrateDiaryMatters, isReviewedDiaryDeadline, validDiaryDate } from '../diarySafety.js';
 
 // ── Storage ─────────────────────────────────────────────────────────────────
 const DIARY_KEY = 'lexi2:court-diary';
 
 function loadMatters() {
   try {
-    return JSON.parse(localStorage.getItem(DIARY_KEY) || '[]');
+    const stored = JSON.parse(localStorage.getItem(DIARY_KEY) || '[]');
+    return migrateDiaryMatters(stored);
   } catch { return []; }
 }
 
@@ -48,13 +51,14 @@ function saveMatters(list) {
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 function addDays(iso, n) {
+  if (!Number.isFinite(n) || n <= 0) return '';
   const d = new Date(iso);
   d.setDate(d.getDate() + n);
   return d.toISOString().split('T')[0];
 }
 
 function daysFrom(iso) {
-  if (!iso) return null;
+  if (!validDiaryDate(iso)) return null;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const target = new Date(iso); target.setHours(0, 0, 0, 0);
   return Math.ceil((target - today) / 86400000);
@@ -282,52 +286,21 @@ function AdjournModal({ matter, onClose, onSave }) {
 
 // ── Deadline row ──────────────────────────────────────────────────────────────
 function DeadlineRow({ dl, onChange }) {
-  const days = dl.dueDate ? daysFrom(dl.dueDate) : null;
-  const badge = urgencyBadge(days);
-  return (
-    <div className={cn(
-      'flex items-start gap-3 py-2.5 border-b border-slate-100 dark:border-slate-800',
-      dl.done && 'opacity-50'
-    )}>
-      <button onClick={() => onChange({ ...dl, done: !dl.done })}
-        className="mt-0.5 flex-shrink-0 text-slate-400 hover:text-emerald-500 transition-colors">
-        {dl.done
-          ? <CheckCheck className="w-5 h-5 text-emerald-500" />
-          : <Circle className="w-5 h-5" />}
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className={cn('text-sm font-medium', dl.done && 'line-through text-slate-400')}>
-          {dl.label}
-        </p>
-        <p className="text-xs text-slate-400">After: {dl.triggerEvent}</p>
-        {dl.triggerDate && (
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-xs text-slate-500">Due: {fmtDate(dl.dueDate)}</p>
-            {badge && !dl.done && (
-              <Badge variant={badge.variant} className="text-xs">{badge.label}</Badge>
-            )}
-          </div>
-        )}
-        {!dl.triggerDate && (
-          <div className="mt-1 flex items-center gap-2">
-            <input type="date" value={dl.triggerDate || ''}
-              onChange={(e) => {
-                const td = e.target.value;
-                onChange({ ...dl, triggerDate: td, dueDate: td ? addDays(td, dl.dueDays) : '' });
-              }}
-              className="text-xs border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300" />
-            <span className="text-xs text-slate-400">+ {dl.dueDays} days = due date</span>
-          </div>
-        )}
-        {dl.triggerDate && !dl.done && (
-          <button onClick={() => onChange({ ...dl, triggerDate: '', dueDate: '' })}
-            className="text-xs text-slate-400 hover:text-slate-600 mt-0.5">
-            Clear trigger date
-          </button>
-        )}
-      </div>
+  const reviewed = isReviewedDiaryDeadline(dl);
+  const badge = reviewed ? urgencyBadge(daysFrom(dl.dueDate)) : null;
+  return <div className="py-3 border-b border-slate-100 dark:border-slate-800 space-y-2">
+    <p className="text-sm font-medium">{dl.label}</p>
+    <p className="text-xs text-amber-600">Planning checklist only. Verify the current court rule, jurisdiction, triggering event, exclusions and court order. Legacy periods are not used.</p>
+    {dl.legacyDueDate && <p className="text-xs text-amber-600">Unverified legacy recorded date: {fmtDate(dl.legacyDueDate)}</p>}
+    <div className="grid sm:grid-cols-3 gap-2">
+      <Input label="Jurisdiction / court" value={dl.jurisdiction || ''} onChange={e => onChange({ ...dl, jurisdiction: e.target.value, reviewedByCounsel: false, dueDate: '', legacyDueDate: dl.dueDate || dl.legacyDueDate })} />
+      <Input label="Operative rule / order and trigger" value={dl.source || ''} onChange={e => onChange({ ...dl, source: e.target.value, reviewedByCounsel: false, dueDate: '', legacyDueDate: dl.dueDate || dl.legacyDueDate })} />
+      <Input label="Counsel-calculated due date" type="date" value={dl.dueDate || dl.proposedDueDate || ''} onChange={e => onChange({ ...dl, proposedDueDate: e.target.value, dueDate: '', reviewedByCounsel: false })} />
     </div>
-  );
+    <label className="flex gap-2 text-xs"><input type="checkbox" checked={reviewed} disabled={!dl.source?.trim() || !dl.jurisdiction?.trim() || !(dl.proposedDueDate || dl.dueDate)} onChange={e => onChange({ ...dl, reviewedByCounsel: e.target.checked, proposedDueDate: dl.proposedDueDate || dl.dueDate, dueDate: e.target.checked ? (dl.proposedDueDate || dl.dueDate) : '' })} />Counsel has verified the operative provision, trigger and counting method for this court and jurisdiction.</label>
+    {badge && !dl.done && <Badge variant={badge.variant}>{badge.label}</Badge>}
+    <Button size="sm" variant="ghost" onClick={() => onChange({ ...dl, done: !dl.done })}>{dl.done ? 'Mark incomplete' : 'Mark complete'}</Button>
+  </div>;
 }
 
 // ── Matter card ───────────────────────────────────────────────────────────────
@@ -510,86 +483,7 @@ function MatterCard({ matter, onEdit, onAdjourn, onDelete, expanded, onToggle })
 }
 
 // ── Limitation Calculator (standalone) ───────────────────────────────────────
-function LimitationCalculator() {
-  const [sel, setSel] = useState('');
-  const [date, setDate] = useState('');
-  const period = LIMITATION_PERIODS.find((p) => p.id === sel);
-  const deadline = period?.days && date ? addDays(date, period.days) : null;
-  const days = deadline ? daysFrom(deadline) : null;
-
-  return (
-    <Card variant="glass" className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Calculator className="w-5 h-5 text-violet-500" />
-        <h3 className="font-semibold text-slate-900 dark:text-white">
-          Limitation Period Calculator
-        </h3>
-      </div>
-      <p className="text-sm text-slate-500">
-        Enter the date the cause of action arose to instantly compute the limitation deadline.
-      </p>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Select label="Cause of action"
-          value={sel}
-          onChange={(e) => setSel(e.target.value)}
-          options={[
-            { value: '', label: '— Select —' },
-            ...LIMITATION_PERIODS.map((p) => ({ value: p.id, label: p.label })),
-          ]}
-          className="sm:col-span-2"
-        />
-        <Input label="Date cause of action arose" type="date" value={date}
-          onChange={(e) => setDate(e.target.value)} />
-        {deadline && (
-          <div className="flex flex-col justify-end pb-1">
-            <p className="text-xs text-slate-500 mb-1">Deadline to file suit</p>
-            <p className={cn('text-xl font-bold', urgencyClass(days))}>
-              {fmtDate(deadline)}
-            </p>
-            {days !== null && (
-              <p className={cn('text-sm mt-0.5', urgencyClass(days))}>
-                {days >= 0
-                  ? `${days} day${days !== 1 ? 's' : ''} remaining`
-                  : `⚠ ${Math.abs(days)} days past the deadline`}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-      {period && (
-        <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3 space-y-1.5 text-sm">
-          <p className="text-slate-600 dark:text-slate-300">
-            <strong>Applicable law:</strong> {period.law}
-          </p>
-          {period.days && (
-            <p className="text-slate-500">
-              <strong>Limitation period:</strong>{' '}
-              {period.years ? `${period.years} year${period.years > 1 ? 's' : ''} (${period.days} days)` : `${period.days} days`}
-            </p>
-          )}
-          {period.note && (
-            <p className="text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
-              <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              {period.note}
-            </p>
-          )}
-          {period.isPreAction && (
-            <p className="text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              Pre-action notice required — serve written notice before filing the suit. The limitation clock also runs; do not wait.
-            </p>
-          )}
-          {period.urgent && (
-            <p className="text-red-600 dark:text-red-400 font-medium flex items-start gap-1.5">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              URGENT — this is a short limitation period. Act immediately.
-            </p>
-          )}
-        </div>
-      )}
-    </Card>
-  );
-}
+function LimitationCalculator() { return <VerifiedDeadline />; }
 
 // ── Main CourtDiary page ──────────────────────────────────────────────────────
 const TABS = [
@@ -612,20 +506,29 @@ export function CourtDiary() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const persist = useCallback((list) => {
-    setMatters(list);
-    saveMatters(list);
-  }, []);
+    try {
+      saveMatters(list);
+      setMatters(list);
+      return true;
+    } catch {
+      showToast('error', 'Court Diary could not be saved. Check browser storage before retrying.');
+      return false;
+    }
+  }, [showToast]);
 
   const addMatter = useCallback((data) => {
     const updated = [...matters, data];
-    persist(updated);
+    if (!persist(updated)) return;
     audit('DIARY_ADD', data.title);
     showToast('success', `"${data.title}" added to your diary.`);
   }, [matters, persist, audit, showToast]);
 
   const updateMatter = useCallback((data) => {
-    const updated = matters.map((m) => m.id === data.id ? data : m);
-    persist(updated);
+    const previous = matters.find(m => m.id === data.id);
+    const contextChanged = previous && (previous.court !== data.court || previous.courtLocation !== data.courtLocation);
+    const safeData = contextChanged ? { ...data, deadlines: (data.deadlines || []).map(dl => ({ ...dl, legacyDueDate: dl.dueDate || dl.legacyDueDate, dueDate: '', reviewedByCounsel: false })) } : data;
+    const updated = matters.map((m) => m.id === data.id ? safeData : m);
+    if (!persist(updated)) return;
     if (!data._silent) {
       audit('DIARY_UPDATE', data.title);
       showToast('success', 'Matter updated.');
@@ -634,7 +537,7 @@ export function CourtDiary() {
 
   const deleteMatter = useCallback((id) => {
     const m = matters.find((x) => x.id === id);
-    persist(matters.filter((x) => x.id !== id));
+    if (!persist(matters.filter((x) => x.id !== id))) return;
     audit('DIARY_DELETE', m?.title || id);
     showToast('success', 'Matter removed from diary.');
   }, [matters, persist, audit, showToast]);
@@ -658,7 +561,7 @@ export function CourtDiary() {
         updatedAt: new Date().toISOString(),
       };
     });
-    persist(updated);
+    if (!persist(updated)) return;
     audit('DIARY_ADJOURN', `${matters.find((m) => m.id === matterId)?.title} → ${fmtDate(form.toDate)}`);
     showToast('success', `Adjourned to ${fmtDate(form.toDate)}.`);
   }, [matters, persist, audit, showToast]);

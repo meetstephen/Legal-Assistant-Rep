@@ -2,7 +2,7 @@
 // lexi/components/AiResult.jsx — full AI answer presentation
 // ============================================================
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, Download, Copy, Save, Globe, Loader2 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { renderMarkdown } from '../utils.js';
@@ -12,25 +12,33 @@ import { Card, Button, Badge, Disclaimer } from './ui.jsx';
 import { ReasoningPanel, GroundingSources, ConfidenceMeter, CitationAudit } from './AiPanels.jsx';
 
 export function AiResult({ ai, title = 'LexiAssist Response', exportTitle, allowSave = true, showAudit = true }) {
-  const { profile, cases, saveAnalysis, showToast, audit } = useApp();
+  const { profile, cases, saveAnalysis, showToast, audit, navigate } = useApp();
   const [saveCaseId, setSaveCaseId] = useState('');
+  const [savedId, setSavedId] = useState('');
   const body = ai.cleanText || ai.text;
+  useEffect(() => { setSavedId(''); }, [body]);
 
   if (!ai.running && !body && !ai.error) return null;
 
-  const doExport = (fn, kind) => {
-    fn(body, { profile, title: exportTitle || title, filename: exportTitle || title });
-    audit('EXPORT', kind);
-    showToast('success', `Exported as ${kind}.`);
+  const doExport = async (fn, kind) => {
+    try {
+      const sources = (ai.sources || []).filter(source => /^https?:\/\//i.test(source.uri || ''));
+      const exportedBody = sources.length ? `${body}\n\n## Search-linked sources (verify before reliance)\n${sources.map(source => `- ${source.title || 'Source'}: ${source.uri}`).join('\n')}` : body;
+      const result = await fn(exportedBody, { profile, title: exportTitle || title, filename: exportTitle || title });
+      audit('EXPORT', kind);
+      showToast(result === false ? 'warning' : 'success', kind === 'PDF' ? (result === false ? 'Popup blocked. Downloaded a printable HTML copy instead.' : 'Print dialog opened. Choose Save as PDF to create your PDF.') : `Exported as ${kind}.`);
+    } catch { showToast('error', 'Export failed. Please try again.'); }
   };
 
   const handleSave = () => {
-    saveAnalysis({
+    const saved = saveAnalysis({
       caseId: saveCaseId || null,
       title: exportTitle || title,
       content: body,
       grounded: ai.grounded,
+      sources: ai.sources || [], queries: ai.queries || [], scores: ai.scores || null,
     });
+    setSavedId(saved.id);
     showToast('success', saveCaseId ? 'Saved to case.' : 'Saved to analyses.');
   };
 
@@ -70,7 +78,7 @@ export function AiResult({ ai, title = 'LexiAssist Response', exportTitle, allow
               <div className="flex gap-1.5 flex-wrap">
                 <Button size="sm" variant="ghost" onClick={() => copyToClipboard(body).then(() => showToast('success', 'Copied.'))} leftIcon={<Copy className="w-4 h-4" />}>Copy</Button>
                 <Button size="sm" variant="secondary" onClick={() => doExport(exportTxt, 'TXT')}>TXT</Button>
-                <Button size="sm" variant="secondary" onClick={() => doExport(exportDoc, 'DOC')}>DOC</Button>
+                <Button size="sm" variant="secondary" onClick={() => doExport(exportDoc, 'DOCX')}>DOCX</Button>
                 <Button size="sm" variant="secondary" onClick={() => doExport(exportPdf, 'PDF')} leftIcon={<Download className="w-4 h-4" />}>PDF</Button>
               </div>
             )}
@@ -105,6 +113,7 @@ export function AiResult({ ai, title = 'LexiAssist Response', exportTitle, allow
                 ))}
               </select>
               <Button size="sm" onClick={handleSave} leftIcon={<Save className="w-4 h-4" />}>Save</Button>
+              {savedId && <Button size="sm" variant="secondary" onClick={() => navigate('library', { libraryId: `analysis:${savedId}` })}>Open in Library</Button>}
             </Card>
           )}
 

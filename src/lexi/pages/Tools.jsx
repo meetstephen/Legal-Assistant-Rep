@@ -84,7 +84,7 @@ function Limitation() {
   );
 }
 
-function Deadline() {
+export function Deadline() {
   const { addTask, showToast } = useApp();
   const [start, setStart] = useState(todayISO());
   const [idx, setIdx] = useState('0');
@@ -321,4 +321,3 @@ function Checklist() {
     </Card>
   );
 }
-

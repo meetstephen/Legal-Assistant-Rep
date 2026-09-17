@@ -11,7 +11,7 @@ import { useApp } from '../AppContext.jsx';
 import { Card, Button, Input, Textarea, Select, Badge, Modal, EmptyState, PageHeader } from '../components/ui.jsx';
 import { STATUS_BADGE } from '../themes.js';
 import { formatDate, formatRelativeDate, daysUntil, cn } from '../utils.js';
-import { exportPdf, exportTxt } from '../exports.js';
+import { exportPdf, exportTxt, exportDoc } from '../exports.js';
 import { buildICS } from '../ics.js';
 import { downloadBlob } from '../utils.js';
 
@@ -61,7 +61,7 @@ export function Cases() {
     showToast('success', 'Hearing added.');
   };
 
-  const exportBundle = (c, kind) => {
+  const exportBundle = async (c, kind) => {
     const caseAnalyses = analyses.filter((a) => a.caseId === c.id);
     const parts = [];
     parts.push(`CASE: ${c.title}`);
@@ -83,8 +83,10 @@ export function Cases() {
     }
     const content = parts.join('\n');
     const opts = { profile, title: `Case Bundle — ${c.title}`, filename: `Case_Bundle_${c.title}` };
-    if (kind === 'PDF') exportPdf(content, opts); else exportTxt(content, opts);
-    showToast('success', `Case bundle exported (${kind}).`);
+    try {
+      const result = kind === 'PDF' ? exportPdf(content, opts) : kind === 'DOCX' ? await exportDoc(content, opts) : exportTxt(content, opts);
+      showToast(result === false ? 'warning' : 'success', kind === 'PDF' ? (result === false ? 'Popup blocked. Printable HTML downloaded.' : 'Print dialog opened. Choose Save as PDF.') : `Case bundle exported (${kind}).`);
+    } catch { showToast('error', 'Case bundle export failed. Please try again.'); }
   };
 
   return (
@@ -147,6 +149,7 @@ export function Cases() {
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => exportBundle(c, 'PDF')} leftIcon={<Package className="w-4 h-4" />}>Bundle PDF</Button>
                           <Button size="sm" variant="ghost" onClick={() => exportBundle(c, 'TXT')} leftIcon={<Download className="w-4 h-4" />}>Bundle TXT</Button>
+                          <Button size="sm" variant="ghost" onClick={() => exportBundle(c, 'DOCX')}>Bundle DOCX</Button>
                         </div>
                         {open && (
                           <div className="space-y-2 pt-2">
