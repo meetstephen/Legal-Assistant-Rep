@@ -286,6 +286,7 @@ function Checklist() {
   const [matter, setMatter] = useState(MATTER_TYPES[0]);
   const [court, setCourt] = useState(COURTS[2]);
   const [jurisdiction, setJurisdiction] = useState('');
+  const jurisdictionRef = React.useRef(null);
   const [division, setDivision] = useState('');
   const [lawAsAt, setLawAsAt] = useState(todayISO());
   React.useEffect(() => { ai.reset(); }, [matter, court, jurisdiction, division, lawAsAt, ai.reset]);
@@ -293,7 +294,7 @@ function Checklist() {
   const generate = () => {
     let userText;
     try { userText = buildCourtChecklistRequest({ matter, court, jurisdiction, division, lawAsAt }); }
-    catch (e) { showToast('warning', e.message); return; }
+    catch (e) { showToast('warning', e.message); jurisdictionRef.current?.focus(); return; }
     ai.run({
       systemInstruction: 'You are a Nigerian litigation practitioner researching confirmed court instruments for the selected court and jurisdiction. First test competence and identify the operative rules, edition, amendments and practice directions for the supplied date. Federal courts use their own rules, not state High Court rules based on location. Sections: 1) Jurisdiction and verification gaps, 2) Pre-action requirements, 3) Documents to file, 4) Filing and frontloading, 5) Service, 6) Common defects, 7) Conditional timeline. Cite actual text, source URL and Order/Rule pinpoints; do not invent fees, copy counts or deadlines. Missing instruments mean a provisional checklist, not filing-ready advice.',
       userText,
@@ -308,7 +309,7 @@ function Checklist() {
       <div className="grid sm:grid-cols-3 gap-3">
         <Select label="Matter type" value={matter} onChange={(e) => setMatter(e.target.value)} options={MATTER_TYPES.map((m) => ({ value: m, label: m }))} />
         <Select label="Court" value={court} onChange={(e) => setCourt(e.target.value)} options={COURTS.map((c) => ({ value: c, label: c }))} />
-        <Select label="State / FCT / federal scope *" value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}
+        <Select ref={jurisdictionRef} label="State / FCT / federal scope *" value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}
           options={[{ value: '', label: 'Select the actual jurisdiction' }, ...NIGERIAN_JURISDICTIONS.map(j => ({ value: j, label: j }))]} />
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
@@ -316,7 +317,8 @@ function Checklist() {
         <Input label="Law-as-at date" type="date" value={lawAsAt} onChange={e => setLawAsAt(e.target.value)} />
       </div>
       <p className="text-xs text-amber-700 dark:text-amber-400">Live research is required. Rules are determined by the court, not by a combined FHC/NIC option or the state of its sitting. Unverified requirements remain provisional.</p>
-      <Button onClick={generate} disabled={!jurisdiction} isLoading={ai.running} leftIcon={<Sparkles className="w-4 h-4" />}>Generate checklist</Button>
+      {!jurisdiction && <p className="text-sm text-amber-700 dark:text-amber-300">Choose the matter jurisdiction above before generating; clicking the button will take you to the selector.</p>}
+      <Button onClick={generate} isLoading={ai.running} leftIcon={<Sparkles className="w-4 h-4" />}>Generate checklist</Button>
       <AiResult ai={ai} title="Filing checklist" exportTitle={`Checklist — ${matter}`} allowSave showAudit={false} />
     </Card>
   );
