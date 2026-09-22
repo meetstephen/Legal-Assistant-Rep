@@ -18,6 +18,7 @@ import { AiResult } from '../components/AiResult.jsx';
 import { cn, todayISO } from '../utils.js';
 import { JurisdictionFields } from '../components/JurisdictionFields.jsx';
 import { buildJurisdictionBrief } from '../jurisdictions.js';
+import { hasAiInput } from '../aiSubmission.js';
 
 const ICON_MAP = {
   MessageSquare, Search, FileText, BookOpen, ChevronRight, Target, Scale, ClipboardCheck,
@@ -34,6 +35,15 @@ export function AIAssistant() {
   const [thinking, setThinking] = useState(true);
   const [input, setInput] = useState('');
   const [scope, setScope] = useState({ jurisdiction: '', court: '', division: '', lawAsAt: todayISO() });
+  const jurisdictionRef = useRef(null);
+  const [scopeError, setScopeError] = useState('');
+  const requireJurisdiction = () => {
+    if (scope.jurisdiction) return true;
+    setScopeError('Select the matter’s state, FCT or federal scope before generating. This prevents applying the wrong court rules.');
+    jurisdictionRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    jurisdictionRef.current?.focus();
+    return false;
+  };
 
   // Prefill from another page (e.g. Templates → "Use in AI").
   React.useEffect(() => {
@@ -76,7 +86,7 @@ export function AIAssistant() {
   };
 
   const runMain = (extra, overrideTask) => {
-    if (!scope.jurisdiction) return;
+    if (!requireJurisdiction()) return;
     ai.run({
       systemInstruction: systemFor(overrideTask),
       userText: composeUser(extra),
@@ -110,7 +120,7 @@ export function AIAssistant() {
   };
 
   const runDocAction = (action) => {
-    if (!doc || !scope.jurisdiction) return;
+    if (!doc || !requireJurisdiction()) return;
     setTaskId(action.id === 'risks' ? 'contract' : taskId);
     ai.run({
       systemInstruction: buildSystemPrompt({
@@ -128,7 +138,7 @@ export function AIAssistant() {
     });
   };
 
-  const canRun = Boolean(scope.jurisdiction && (input.trim() || doc) && !ai.running && !docBusy);
+  const canRun = hasAiInput(input, doc, ai.running || docBusy);
 
   return (
     <div className="space-y-6">
@@ -138,7 +148,7 @@ export function AIAssistant() {
         subtitle="Reasons before it answers · grounded in Nigerian law · put it online for real sources"
         gradient="from-violet-500 to-fuchsia-500"
       />
-      <Card variant="glass"><JurisdictionFields scope={scope} onChange={next => { ai.reset(); followup.reset(); setScope(next); }} /></Card>
+      <Card variant="glass"><JurisdictionFields scope={scope} jurisdictionRef={jurisdictionRef} error={scopeError && !scope.jurisdiction ? scopeError : ''} onChange={next => { ai.reset(); followup.reset(); setScope(next); setScopeError(''); }} /></Card>
 
       {!aiReady && (
         <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
@@ -252,6 +262,7 @@ export function AIAssistant() {
             Compare analyses
           </Button>
         </div>
+        {canRun && !scope.jurisdiction && <p className="text-sm text-amber-700 dark:text-amber-300" role="status">Select the matter jurisdiction above before generating. Click Generate to go to that field.</p>}
         {groundOverride && (
           <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
             <Globe className="w-3.5 h-3.5" /> Online: this answer will be grounded in live web sources with clickable links.
@@ -422,4 +433,3 @@ function AnalysisComparison({ mode, grounding }) {
     </Card>
   );
 }
-

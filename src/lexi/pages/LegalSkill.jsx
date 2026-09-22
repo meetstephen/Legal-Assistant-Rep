@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../AppContext.jsx';
 import { useAiRun } from '../useAiRun.js';
+import { hasAiInput } from '../aiSubmission.js';
 import {
   Card, Button, Input, Select, Textarea, Badge,
   PageHeader, Toggle,
@@ -362,6 +363,8 @@ function ModePanel({ mode, onRun, ai }) {
   const [text, setText] = useState('');
   const [extraVals, setExtraVals] = useState(() => Object.fromEntries((mode.extraFields || []).filter(f => f.type === 'select').map(f => [f.key, f.options[0]])));
   const [jurisdiction, setJurisdiction] = useState('');
+  const jurisdictionRef = useRef(null);
+  const [scopeError, setScopeError] = useState('');
   const [court, setCourt] = useState('');
   const [division, setDivision] = useState('');
   const [lawAsAt, setLawAsAt] = useState(todayISO());
@@ -389,7 +392,16 @@ function ModePanel({ mode, onRun, ai }) {
     return buildJurisdictionBrief({ jurisdiction, court, division, lawAsAt, governingLaw: extraVals.governing_law }) + '\n\n' + prefix + content;
   };
 
-  const canRun = Boolean(jurisdiction && (text.trim() || doc) && !docBusy);
+  const canRun = hasAiInput(text, doc, docBusy);
+  const startAnalysis = () => {
+    if (!jurisdiction) {
+      setScopeError('Select the matter’s state, FCT or federal scope before analysis. Profile defaults cannot establish the court or governing law.');
+      jurisdictionRef.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+      jurisdictionRef.current?.focus();
+      return;
+    }
+    onRun(buildPrompt(), mode, useGrounding);
+  };
 
   return (
     <div className="space-y-4">
@@ -397,7 +409,7 @@ function ModePanel({ mode, onRun, ai }) {
 
       <Card variant="glass" className="space-y-4">
         <div className="grid sm:grid-cols-2 gap-3">
-          <Select label="Matter jurisdiction * (all states + FCT)" value={jurisdiction} onChange={e => setJurisdiction(e.target.value)}
+          <Select ref={jurisdictionRef} label="Matter jurisdiction * (all states + FCT)" error={!jurisdiction ? scopeError : ''} value={jurisdiction} onChange={e => { setJurisdiction(e.target.value); setScopeError(''); }}
             options={[{ value: '', label: 'Select the actual state, FCT or federal scope' }, ...NIGERIAN_JURISDICTIONS.map(j => ({ value: j, label: j }))]} />
           <Select label="Court / forum (if established)" value={court} onChange={e => setCourt(e.target.value)}
             options={[{ value: '', label: 'Not yet established / non-contentious matter' }, ...COURTS.map(c => ({ value: c, label: c }))]} />
@@ -452,13 +464,14 @@ function ModePanel({ mode, onRun, ai }) {
             {ai.running ? (
               <Button variant="danger" onClick={ai.stop} leftIcon={<Square className="w-4 h-4" />}>Stop</Button>
             ) : (
-              <Button onClick={() => onRun(buildPrompt(), mode, useGrounding)} disabled={!canRun}
+              <Button onClick={startAnalysis} disabled={!canRun}
                 leftIcon={<Sparkles className="w-5 h-5" />}>
                 Run {mode.label}
               </Button>
             )}
           </div>
         </div>
+        {canRun && !jurisdiction && <p className="text-sm text-amber-700 dark:text-amber-300" role="status">Select the matter jurisdiction above before running analysis. Click Run to go to that field.</p>}
       </Card>
 
       <AiResult ai={ai} title={mode.label} exportTitle={`LexiAssist — ${mode.label}`} showAudit />
@@ -478,7 +491,7 @@ export function LegalSkill() {
     const systemInstruction = [
       LEGAL_SKILL_BASE,
       `\n\nFIRM CONTEXT: ${profile.firmName || 'Nigerian legal practice'}.`,
-      `DEFAULT JURISDICTION: ${profile.defaultJurisdiction || 'Nigeria (Federal)'}.`,
+      'MATTER JURISDICTION: Use only the explicitly selected jurisdiction in the user request. A profile preference is not a forum or governing-law determination.',
       '\n\n' + selectedMode.systemSuffix,
     ].join('\n');
 
@@ -559,4 +572,3 @@ export function LegalSkill() {
     </div>
   );
 }
-
