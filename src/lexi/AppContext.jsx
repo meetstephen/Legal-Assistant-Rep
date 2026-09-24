@@ -326,7 +326,7 @@ export function AppProvider({ children }) {
         let loaded = false;
         try {
           // Ensure the profile exists, then load the server-authoritative role.
-          await touchOwnProfile(user.id, user.email);
+          await touchOwnProfile(user.id);
           const ownProfile = await getOwnProfile(user.id);
           if (cancelled) return;
           if (ownProfile?.status === 'suspended') {
@@ -572,4 +572,3 @@ export function AppProvider({ children }) {
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
-
