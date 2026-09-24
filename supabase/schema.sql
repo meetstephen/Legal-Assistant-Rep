@@ -203,3 +203,44 @@ where lower(email) = 'meetstephenoyim@gmail.com';
 --    fires more than once in a short window (retries, redeploys, etc.).
 -- ============================================================
 alter table public.profiles add column if not exists last_deadline_alert_at timestamptz;
+
+-- ============================================================
+-- 7) Explicit Data API grants (required for newly-created public tables from
+--    30 October 2026). GRANT controls whether a role can reach a table at all;
+--    the RLS policies above still control which rows it may read or change.
+--
+-- Start from a deny-by-default position so running this file produces the
+-- same access surface on an existing project, a preview branch, or db reset.
+-- Anonymous visitors do not need database-table access: authentication itself
+-- is handled by Supabase Auth, outside these public tables.
+-- ============================================================
+revoke all on table public.workspaces, public.profiles, public.verified_cases
+  from anon, authenticated, service_role;
+
+-- Signed-in lawyers can read/create/update only their own workspace through
+-- the ownership/status RLS policies. There is intentionally no client DELETE.
+grant select, insert, update on table public.workspaces to authenticated;
+
+-- Profiles are created by the trusted auth.users trigger. The browser may
+-- read permitted directory rows and update only rows allowed by profile RLS;
+-- protect_profile_privileges prevents self-promotion or self-reactivation.
+grant select, update on table public.profiles to authenticated;
+
+-- The shared verified library is read-only to signed-in users. Writes remain
+-- server-side/SQL-editor operations through the service role.
+grant select on table public.verified_cases to authenticated;
+
+-- Server jobs use the service-role secret and need full maintenance access.
+grant select, insert, update, delete
+  on table public.workspaces, public.profiles, public.verified_cases
+  to service_role;
+grant usage, select on sequence public.verified_cases_id_seq to service_role;
+
+-- These functions exist for triggers/policies, not as public RPC endpoints.
+revoke all on function public.touch_updated_at() from public, anon, authenticated;
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+revoke all on function public.protect_profile_privileges() from public, anon, authenticated;
+
+-- is_admin is called by profile RLS and is the only browser-executable helper.
+revoke all on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated, service_role;

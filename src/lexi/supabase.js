@@ -145,17 +145,16 @@ export async function loadAllProfiles() {
   return data || [];
 }
 
-// Call on every confirmed session so last_login stays fresh and a profile
-// row exists even if the signup trigger somehow missed it (defense in depth).
-export async function touchOwnProfile(userId, email) {
+// Call on every confirmed session so last_login stays fresh. Profile rows are
+// created by the auth.users trigger; the browser deliberately has no INSERT
+// grant on profiles, so it cannot manufacture a privileged directory row.
+export async function touchOwnProfile(userId) {
   const sb = getSupabase();
   if (!sb || !userId) return;
   const { error } = await sb
     .from('profiles')
-    .upsert(
-      { id: userId, email, last_login: new Date().toISOString() },
-      { onConflict: 'id' }
-    );
+    .update({ last_login: new Date().toISOString() })
+    .eq('id', userId);
   if (error) console.error('touchOwnProfile failed', error);
 }
 
@@ -207,4 +206,3 @@ export async function setProfileStatus(id, status) {
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data;
 }
-
