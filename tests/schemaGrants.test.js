@@ -31,10 +31,14 @@ describe('Supabase Data API grants', () => {
     expect(sql).toContain('grant usage, select on sequence public.verified_cases_id_seq to service_role');
   });
 
-  it('exposes only the policy helper as an authenticated RPC-capable function', () => {
+  it('keeps internal helpers private while exposing a data-free health RPC', () => {
     for (const fn of ['touch_updated_at', 'handle_new_user', 'protect_profile_privileges']) {
       expect(sql).toContain(`revoke all on function public.${fn}() from public, anon, authenticated`);
     }
     expect(sql).toContain('grant execute on function public.is_admin() to authenticated, service_role');
+    expect(sql).toContain('revoke all on function public.keep_alive() from public');
+    expect(sql).toContain('grant execute on function public.keep_alive() to anon, authenticated, service_role');
+    expect(sql).toMatch(/create or replace function public\.keep_alive\(\) returns timestamptz language sql stable set search_path = '' as \$keep_alive\$ select now\(\); \$keep_alive\$/);
   });
 });
+
