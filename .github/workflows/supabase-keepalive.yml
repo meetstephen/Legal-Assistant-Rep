@@ -35,8 +35,8 @@ jobs:
           endpoint="${SUPABASE_URL%/}/rest/v1/rpc/keep_alive"
           response_file="$(mktemp)"
           trap 'rm -f "$response_file"' EXIT
-          status="$(curl --silent --show-error --retry 3 --retry-all-errors \
-            --connect-timeout 15 --max-time 45 --output "$response_file" \
+          status="$(curl --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 20 --output "$response_file" \
             --write-out '%{http_code}' --request POST \
             --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
             --header "Content-Type: application/json" \
