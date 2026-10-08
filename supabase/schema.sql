@@ -1,7 +1,7 @@
 -- ============================================================
--- LexiAssist 2.0 — Supabase schema (optional cloud persistence)
+-- LexiAssist 2.0 â€” Supabase schema (optional cloud persistence)
 --
--- Run this in the Supabase SQL Editor (Dashboard → SQL → New query).
+-- Run this in the Supabase SQL Editor (Dashboard â†’ SQL â†’ New query).
 -- It creates a per-user workspace store protected by Row Level Security so
 -- each authenticated lawyer can only ever read/write their OWN data.
 --
@@ -10,7 +10,7 @@
 -- app's existing storage contract and needs no schema change as features grow.
 --
 -- Idempotent: every statement uses if-not-exists / drop-then-create, so this
--- file is safe to re-run in full at any time — it will not duplicate data or
+-- file is safe to re-run in full at any time â€” it will not duplicate data or
 -- error on objects that already exist.
 -- ============================================================
 
@@ -35,11 +35,11 @@ create trigger trg_workspaces_touch
   before update on public.workspaces
   for each row execute function public.touch_updated_at();
 
--- 3) Row Level Security: a user can only see and change their own row —
+-- 3) Row Level Security: a user can only see and change their own row â€”
 --    AND only while their account is active. This is the real data-access
 --    boundary for suspension: a Supabase-banned user's existing access token
 --    remains technically valid until it expires (bans block future logins/
---    refreshes, not already-issued tokens — this is documented Supabase/
+--    refreshes, not already-issued tokens â€” this is documented Supabase/
 --    GoTrue behaviour). Checking profiles.status here means a suspended
 --    user's still-valid token cannot read or write workspace data even
 --    during that window, regardless of what the client-side app does.
@@ -97,7 +97,7 @@ create policy "verified cases - read all" on public.verified_cases
 -- (Writes are intentionally left to the service role / SQL editor only.)
 
 -- ============================================================
--- 5) Profiles — gives the in-app Admin dashboard real visibility into every
+-- 5) Profiles â€” gives the in-app Admin dashboard real visibility into every
 --    registered account, and is the source of truth for suspension status
 --    (checked above by the workspaces policies, and polled client-side by
 --    the app to detect a mid-session suspension).
@@ -149,7 +149,7 @@ alter table public.profiles enable row level security;
 -- Administrator authorization is based on public.profiles.role. This avoids
 -- duplicating an admin-email allowlist across the client, database, and API.
 --
--- IMPORTANT: this policy intentionally does NOT check status = 'active' —
+-- IMPORTANT: this policy intentionally does NOT check status = 'active' â€”
 -- a suspended user must still be able to read their OWN profile row so the
 -- app's client-side poll can detect status = 'suspended' and force a
 -- logout. Adding a status check here would make suspension undetectable.
@@ -198,7 +198,7 @@ set role = 'admin'
 where lower(email) = 'meetstephenoyim@gmail.com';
 
 -- ============================================================
--- 6) Deadline alert idempotency — used by api/send-deadline-alerts.js (the
+-- 6) Deadline alert idempotency â€” used by api/send-deadline-alerts.js (the
 --    daily Vercel Cron job) to avoid sending duplicate digests if the cron
 --    fires more than once in a short window (retries, redeploys, etc.).
 -- ============================================================
@@ -236,6 +236,21 @@ grant select, insert, update, delete
   to service_role;
 grant usage, select on sequence public.verified_cases_id_seq to service_role;
 
+-- A deliberately data-free RPC endpoint for the external GitHub Actions
+-- keep-alive request. It has no arguments, reads no application records, and
+-- returns only the database timestamp. Keeping this separate from the legal
+-- library means the health check cannot bypass its authenticated-user policy.
+create or replace function public.keep_alive()
+returns timestamptz
+language sql
+stable
+set search_path = ''
+as $keep_alive$
+  select now();
+$keep_alive$;
+revoke all on function public.keep_alive() from public;
+grant execute on function public.keep_alive() to anon, authenticated, service_role;
+
 -- These functions exist for triggers/policies, not as public RPC endpoints.
 revoke all on function public.touch_updated_at() from public, anon, authenticated;
 revoke all on function public.handle_new_user() from public, anon, authenticated;
@@ -244,3 +259,4 @@ revoke all on function public.protect_profile_privileges() from public, anon, au
 -- is_admin is called by profile RLS and is the only browser-executable helper.
 revoke all on function public.is_admin() from public, anon;
 grant execute on function public.is_admin() to authenticated, service_role;
+
