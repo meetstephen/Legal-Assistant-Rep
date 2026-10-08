@@ -11,32 +11,46 @@ permissions:
 
 jobs:
   database-activity:
-    name: Record minimal database activity
+    name: Make an external Supabase health ping
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      # SUPABASE_PUBLISHABLE_KEY is the preferred current Supabase key. The
+      # fallbacks preserve compatibility with repositories configured before
+      # publishable keys were introduced.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY || secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
     steps:
       - name: Check configured secrets
         shell: bash
         run: |
           set -euo pipefail
           test -n "$SUPABASE_URL"
-          test -n "$SUPABASE_ANON_KEY"
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
 
-      - name: Read public verified-cases table
+      - name: Call the safe keep-alive RPC
         shell: bash
         run: |
           set -euo pipefail
-          endpoint="${SUPABASE_URL%/}/rest/v1/verified_cases?select=id&limit=1"
-          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-            --header "apikey: $SUPABASE_ANON_KEY" \
-            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+          endpoint="${SUPABASE_URL%/}/rest/v1/rpc/keep_alive"
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          status="$(curl --silent --show-error --retry 2 --retry-all-errors \
+            --connect-timeout 10 --max-time 20 --output "$response_file" \
+            --write-out '%{http_code}' --request POST \
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header "Content-Type: application/json" \
             --header "Accept: application/json" \
+            --data '{}' \
             "$endpoint")"
           if [ "$status" != "200" ]; then
-            echo "Supabase keep-alive failed with HTTP $status" >&2
+            echo "Supabase keep-alive RPC failed with HTTP $status." >&2
+            case "$status" in
+              401|403) echo "The configured publishable/anon key was rejected. Replace SUPABASE_PUBLISHABLE_KEY with the current Project API key." >&2 ;;
+              404) echo "The keep_alive RPC is missing. Run the current supabase/schema.sql in the Supabase SQL Editor." >&2 ;;
+            esac
+            echo "Response: $(tr '\n' ' ' < "$response_file")" >&2
             exit 1
           fi
-          echo "Supabase database activity recorded successfully."
+          echo "Supabase external database ping completed successfully."
+

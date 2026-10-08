@@ -236,6 +236,21 @@ grant select, insert, update, delete
   to service_role;
 grant usage, select on sequence public.verified_cases_id_seq to service_role;
 
+-- A deliberately data-free RPC endpoint for the external GitHub Actions
+-- keep-alive request. It has no arguments, reads no application records, and
+-- returns only the database timestamp. Keeping this separate from the legal
+-- library means the health check cannot bypass its authenticated-user policy.
+create or replace function public.keep_alive()
+returns timestamptz
+language sql
+stable
+set search_path = ''
+as $keep_alive$
+  select now();
+$keep_alive$;
+revoke all on function public.keep_alive() from public;
+grant execute on function public.keep_alive() to anon, authenticated, service_role;
+
 -- These functions exist for triggers/policies, not as public RPC endpoints.
 revoke all on function public.touch_updated_at() from public, anon, authenticated;
 revoke all on function public.handle_new_user() from public, anon, authenticated;

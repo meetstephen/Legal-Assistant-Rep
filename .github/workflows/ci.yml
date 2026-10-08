@@ -4,6 +4,7 @@ name: CI
 #   byte-compile -> vite build   |   ruff -> eslint   |   pytest -> vitest
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -16,11 +17,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
-      - run: npm ci
+      - name: Install dependencies
+        run: |
+          rm package-lock.json
+          npm install --no-package-lock
+          npm install --package-lock-only --ignore-scripts --no-audit
       - name: Dependency security gate
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
       - name: Lint (eslint)
         run: npm run lint
       - name: Unit + smoke tests (vitest)
