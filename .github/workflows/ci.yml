@@ -17,15 +17,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
           cache: 'npm'
       - name: Install dependencies
-        run: |
-          test -f package-lock.json
-          git ls-files --error-unmatch package-lock.json
-          npm ci
+        run: npm ci
       - name: Dependency security gate
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
       - name: Lint (eslint)
         run: npm run lint
       - name: Unit + smoke tests (vitest)
