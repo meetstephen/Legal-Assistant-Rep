@@ -20,7 +20,10 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - name: Install dependencies
-        run: npm ci
+        run: |
+          test -f package-lock.json
+          git ls-files --error-unmatch package-lock.json
+          npm ci
       - name: Dependency security gate
         run: npm audit --audit-level=high
       - name: Lint (eslint)
