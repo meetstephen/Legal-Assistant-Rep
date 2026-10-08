@@ -23,6 +23,7 @@ jobs:
         run: |
           rm package-lock.json
           npm install --no-package-lock
+          npm install --package-lock-only --ignore-scripts --no-audit
       - name: Dependency security gate
         run: npm audit --omit=dev --audit-level=high
       - name: Lint (eslint)
