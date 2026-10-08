@@ -4,6 +4,7 @@ name: CI
 #   byte-compile -> vite build   |   ruff -> eslint   |   pytest -> vitest
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
