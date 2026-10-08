@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-      - run: npm ci
+      - name: Install dependencies\n        run: npm install
       - name: Dependency security gate
         run: npm audit --audit-level=high
       - name: Lint (eslint)
