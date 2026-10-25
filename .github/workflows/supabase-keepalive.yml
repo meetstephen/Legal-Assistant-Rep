@@ -2,8 +2,9 @@ name: Supabase keep-alive
 
 on:
   schedule:
-    # Daily at 09:17 UTC. A non-round minute reduces contention with other jobs.
-    - cron: '17 9 * * *'
+    # Three external database requests daily (09:17, 15:17, and 21:17 UTC).
+    # A non-round minute reduces contention with other scheduled jobs.
+    - cron: '17 9,15,21 * * *'
   workflow_dispatch:
 
 permissions:
